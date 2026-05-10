@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Test-Path *)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\" -Recurse | Where-Object {-not $_.PSIsContainer} | Select-Object FullName | ForEach-Object {$_.FullName})",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\" -Force)",
+      "Bash(Select-Object Name, Mode)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\" -Recurse -Force | Select-Object FullName | ForEach-Object { $_.FullName -replace [regex]::Escape\\(\"c:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\"\\), \".\" } | Sort-Object)",
+      "PowerShell(ls -Force \"c:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\" | Where-Object { -not $_.PSIsContainer } | ForEach-Object { $_.Name })",
+      "PowerShell($file = \"c:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\\\\Orçamento Diário v6.html\"; \\(Get-Item $file\\).Length / 1MB)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\" -Recurse -Force)",
+      "Bash(Select-Object -Property FullName, PSIsContainer)",
+      "Bash(Sort-Object FullName)",
+      "Bash(Format-Table -AutoSize)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\" -Recurse -Force | ForEach-Object { $_.FullName })",
+      "PowerShell(Copy-Item *)",
+      "PowerShell(Get-ChildItem -Recurse \"C:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\\\\dist\" | Format-Table Name, @{n='Dir';e={$_.DirectoryName}} -AutoSize)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\" -Depth 0 | ForEach-Object { $_.Name })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\" -Directory -Depth 0 | ForEach-Object { $_.Name })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\\\\dist\" -Depth 0 | ForEach-Object { $_.Name })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\\\\public\" -Recurse | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\('C:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\\\\', ''\\) })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\\\\assets\" -Recurse | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\('C:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\\\\', ''\\) })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\\\\icons\" | ForEach-Object { $_.Name })",
+      "PowerShell(Get-Item *)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\" -File -Depth 0 | ForEach-Object { \"$\\($_.Name\\) - $\\($_.Length\\) bytes\" })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\\\\dist\" -Recurse | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\('C:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\\\\', ''\\) } | Sort-Object)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\rafae\\\\Downloads\\\\APP - v0.1\" -File -Depth 0 | Where-Object { $_.Extension -eq \"\" -or $_.Extension -match \"html|js|jsx|json|svg|png\" } | ForEach-Object { $_.Name })",
+      "Bash(git config *)",
+      "PowerShell(git config *)"
+    ]
+  }
+}

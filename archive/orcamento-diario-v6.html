@@ -1,0 +1,3148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hoje Dá</title>
+<!-- PWA -->
+<meta name="theme-color" content="#163B75" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Hoje Dá" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
+<link rel="icon" href="assets/brand/hoje-da-icon.svg" type="image/svg+xml" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="android-frame.jsx"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: #0f0f14;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh;
+  }
+  ::-webkit-scrollbar { width: 0; height: 0; }
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; }
+  input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+  @keyframes slideUp   { from { opacity:0; transform:translateY(16px);  } to { opacity:1; transform:translateY(0);  } }
+  @keyframes slideDown { from { opacity:0; transform:translateY(-8px);  } to { opacity:1; transform:translateY(0);  } }
+  @keyframes fadeIn    { from { opacity:0; } to { opacity:1; } }
+  @keyframes popIn     { from { opacity:0; transform:scale(0.92); } to { opacity:1; transform:scale(1); } }
+  @keyframes shimmer   { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+  .screen-enter { animation: slideUp 0.28s cubic-bezier(.2,.8,.3,1) both; }
+  .screen-back  { animation: slideDown 0.22s cubic-bezier(.2,.8,.3,1) both; }
+  .pop-in       { animation: popIn 0.2s cubic-bezier(.2,.8,.3,1) both; }
+  .fade-in      { animation: fadeIn 0.18s ease both; }
+  button:active { transform: scale(0.97); transition: transform 0.08s; }
+  @keyframes numPop { 0%,100% { transform: scale(1); } 35% { transform: scale(1.05); } }
+  .num-pop { animation: numPop 0.65s cubic-bezier(.2,.8,.3,1) both; }
+</style>
+</head>
+<body>
+<script type="text/babel">
+
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const T = {
+  bg:          '#F6F8FB',
+  bgAlt:       '#F1F5F9',
+  card:        '#FFFFFF',
+  text:        '#0F172A',
+  textSec:     '#667085',
+  textTer:     '#94A3B8',
+  sep:         '#E7ECF3',
+  blue:        '#2F6FED',
+  blueLight:   '#EEF4FF',
+  blueMid:     '#7BAEFF',
+  blueDark:    '#163B75',
+  green:       '#31A46C',
+  greenLight:  '#EAF7F0',
+  yellow:      '#E8B63E',
+  yellowLight: '#FFF7E3',
+  red:         '#E35D6A',
+  redLight:    '#FDECEF',
+  r8: 8, r12: 12, r14: 14, r16: 16, r20: 20, r24: 24,
+  font: "'DM Sans', system-ui, sans-serif",
+  shadow: '0 8px 24px rgba(15,23,42,0.07)',
+  border: '1px solid #E7ECF3',
+};
+
+// ─── Utilitários ──────────────────────────────────────────────────────────────
+const fmt = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+const fmtDate    = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+const fmtDateKey = d => { const dt = new Date(d); return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`; };
+const fmtTime    = d => new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+// ─── Storage ──────────────────────────────────────────────────────────────────
+const SK = 'orcamento_diario_v6';
+const SK_LEGACY = 'orcamento_diario_v5';
+const loadState = () => {
+  try {
+    const raw = localStorage.getItem(SK) ?? localStorage.getItem(SK_LEGACY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) || null;
+    if (parsed && !localStorage.getItem(SK)) {
+      localStorage.setItem(SK, raw);
+      localStorage.removeItem(SK_LEGACY);
+    }
+    if (parsed) {
+      // Migrate single metaCompra → metasCompra array
+      if (parsed.metaCompra && !parsed.metasCompra) {
+        parsed.metasCompra = [{ ...parsed.metaCompra, id: Date.now() }];
+        delete parsed.metaCompra;
+      }
+      if (!parsed.metasCompra) parsed.metasCompra = [];
+      // Sanitize: remove null/invalid transactions that would crash calcStats
+      if (Array.isArray(parsed.transacoes)) {
+        parsed.transacoes = parsed.transacoes.filter(t => t != null && t.tipo);
+      } else {
+        parsed.transacoes = [];
+      }
+    }
+    return parsed;
+  } catch { return null; }
+};
+const saveState = s => { try { localStorage.setItem(SK, JSON.stringify(s)); } catch {} };
+
+// ─── Háptico + Sonoro ─────────────────────────────────────────────────────────
+function haptic(type = 'light') {
+  if (navigator.vibrate) {
+    const map = { light: [8], medium: [25], success: [8, 40, 15], error: [35, 25, 35] };
+    navigator.vibrate(map[type] || [8]);
+  }
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    const now = ctx.currentTime;
+    if (type === 'success') { o.frequency.value = 900; g.gain.setValueAtTime(0.07, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.15); }
+    else if (type === 'error') { o.frequency.value = 200; g.gain.setValueAtTime(0.07, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.2); }
+    else { o.frequency.value = 660; g.gain.setValueAtTime(0.04, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.08); }
+    o.start(); o.stop(now + 0.25);
+  } catch {}
+}
+
+// ─── Categorias ───────────────────────────────────────────────────────────────
+const CATS = [
+  { id: 'alimentacao', label: 'Alimentação', emoji: '🍽️', cor: 'oklch(0.66 0.16 48)'  },
+  { id: 'transporte',  label: 'Transporte',  emoji: '🚌', cor: 'oklch(0.56 0.18 252)' },
+  { id: 'moradia',     label: 'Moradia',     emoji: '🏠', cor: 'oklch(0.56 0.16 210)' },
+  { id: 'saude',       label: 'Saúde',       emoji: '💊', cor: 'oklch(0.56 0.18 152)' },
+  { id: 'lazer',       label: 'Lazer',       emoji: '🎮', cor: 'oklch(0.56 0.20 295)' },
+  { id: 'educacao',    label: 'Educação',    emoji: '📚', cor: 'oklch(0.58 0.18 225)' },
+  { id: 'vestuario',   label: 'Vestuário',   emoji: '👕', cor: 'oklch(0.60 0.18 0)'   },
+  { id: 'outros',      label: 'Outros',      emoji: '📦', cor: T.textSec              },
+];
+const getCat = id => CATS.find(c => c.id === id) || CATS[7];
+
+const INCOME_CATS = [
+  { id: 'salario',   label: 'Salário',   emoji: '💼', cor: 'oklch(0.58 0.18 152)' },
+  { id: 'freela',    label: 'Freela',    emoji: '💻', cor: 'oklch(0.56 0.18 252)' },
+  { id: 'bonus',     label: 'Bônus',     emoji: '🎁', cor: 'oklch(0.66 0.16 48)'  },
+  { id: 'reembolso', label: 'Reembolso', emoji: '↩️', cor: 'oklch(0.56 0.20 295)' },
+  { id: 'outros_e',  label: 'Outros',    emoji: '💚', cor: T.textSec              },
+];
+const getIncomeCat = id => INCOME_CATS.find(c => c.id === id) || INCOME_CATS[4];
+const SK_LAST_CAT = 'hd_last_cat';
+const SK_LAST_INCOME_CAT = 'hd_last_income_cat';
+
+// ─── Lógica central ───────────────────────────────────────────────────────────
+function calcStats(state) {
+  const hoje = new Date();
+  const inicio = new Date(state.dataInicio);
+  const hojeDate  = new Date(hoje.getFullYear(),  hoje.getMonth(),  hoje.getDate());
+  const inicioDate = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate());
+  const diaAtual = Math.max(1, Math.min(
+    Math.floor((hojeDate - inicioDate) / 86400000) + 1,
+    state.diasDoMes
+  ));
+  const diasRestantes    = state.diasDoMes - diaAtual;
+  const valorDiarioBase  = state.valorMensal / state.diasDoMes;
+  const totalGastos      = state.transacoes.filter(t => t && t.tipo === 'gasto').reduce((s, t) => s + t.valor, 0);
+  const totalEntradas      = state.transacoes.filter(t => t && t.tipo === 'extra').reduce((s, t) => s + t.valor, 0);
+  const saldoTotalRestante = state.valorMensal + totalEntradas - totalGastos;
+  const disponivelHoje   = valorDiarioBase * diaAtual + totalEntradas - totalGastos;
+
+  const mediaGastoPorDia = diaAtual > 0 ? totalGastos / diaAtual : 0;
+  const projecaoFinal    = mediaGastoPorDia * state.diasDoMes;
+  const projecaoDiff     = (state.valorMensal + totalEntradas) - projecaoFinal;
+
+  let metaRecuperacaoDiaria = null;
+  if (disponivelHoje < 0 && diasRestantes > 0) {
+    const deficitPlano = Math.abs(disponivelHoje);
+    metaRecuperacaoDiaria = valorDiarioBase - (deficitPlano / diasRestantes);
+  }
+
+  // Aggregate economy across all purchase goals
+  let economiaDiariaCompra = 0;
+  for (const meta of (state.metasCompra || [])) {
+    const hojeM = new Date(); hojeM.setHours(0, 0, 0, 0);
+    const dc = new Date(meta.data + 'T00:00:00');
+    const dias = Math.max(0, Math.ceil((dc - hojeM) / 86400000));
+    if (dias > 0) economiaDiariaCompra += meta.valor / dias;
+  }
+
+  return {
+    diaAtual, diasRestantes, valorDiarioBase,
+    totalGastos, totalEntradas, saldoTotalRestante,
+    disponivelHoje, projecaoDiff, mediaGastoPorDia,
+    metaRecuperacaoDiaria,
+    economiaDiariaCompra,
+  };
+}
+
+function calcMetaStat(meta, saldoTotalRestante, valorDiarioBase) {
+  const hojeM = new Date(); hojeM.setHours(0, 0, 0, 0);
+  const dc = new Date(meta.data + 'T00:00:00');
+  const diasAteCompra = Math.max(0, Math.ceil((dc - hojeM) / 86400000));
+  let economiaDiaria = 0, inviavel = false;
+  if (diasAteCompra <= 0) {
+    inviavel = true;
+  } else {
+    economiaDiaria = meta.valor / diasAteCompra;
+    if (meta.valor > saldoTotalRestante) inviavel = true;
+    if (valorDiarioBase - economiaDiaria < 0) inviavel = true;
+  }
+  let pctTempo = 0;
+  if (meta.criadaEm) {
+    const criadaDate = new Date(meta.criadaEm); criadaDate.setHours(0, 0, 0, 0);
+    const diasTotais = Math.max(1, Math.ceil((dc - criadaDate) / 86400000));
+    const diasDecor = Math.max(0, Math.ceil((hojeM - criadaDate) / 86400000));
+    pctTempo = Math.min(1, diasDecor / diasTotais);
+  }
+  return { diasAteCompra, economiaDiaria, inviavel, pctTempo };
+}
+
+function corSaldo(v, base) {
+  if (v < 0) return { cor: T.red, bg: T.redLight };
+  if (v < base * 0.25) return { cor: T.yellow, bg: T.yellowLight };
+  return { cor: T.green, bg: T.greenLight };
+}
+
+function getStatusDiario(stats) {
+  const base = stats.valorDiarioBase || 1;
+  const margem = stats.disponivelHoje;
+
+  if (margem < 0) {
+    if (stats.diasRestantes <= 0) {
+      return {
+        titulo: 'Hoje passou 😅',
+        frase: 'O ciclo terminou acima do plano. Ajuste o próximo ciclo para compensar.',
+        nivel: 'vermelho',
+      };
+    }
+    if (stats.metaRecuperacaoDiaria != null && stats.metaRecuperacaoDiaria > 0) {
+      return {
+        titulo: 'Hoje passou 😅',
+        frase: `Para recuperar, tente gastar até ${fmt(stats.metaRecuperacaoDiaria)} por dia.`,
+        nivel: 'vermelho',
+      };
+    }
+    return {
+      titulo: 'Hoje passou 😅',
+      frase: 'Vai ser difícil recuperar só reduzindo gastos. Considere adicionar uma entrada.',
+      nivel: 'vermelho',
+    };
+  }
+
+  if (margem < base * 0.25) {
+    return {
+      titulo: 'Hoje está apertado 👀',
+      frase: 'Ainda dá, mas é melhor gastar pouco hoje.',
+      nivel: 'amarelo',
+    };
+  }
+
+  if (margem < base) {
+    return {
+      titulo: 'Você está no plano ✅',
+      frase: 'Continue nesse ritmo.',
+      nivel: 'azul',
+    };
+  }
+
+  return {
+    titulo: 'Você está com folga 🌿',
+    frase: 'Você pode gastar hoje com tranquilidade.',
+    nivel: 'verde',
+  };
+}
+
+// ─── Ícones SVG ───────────────────────────────────────────────────────────────
+const IcoBack    = ({c=T.blue,s=22})    => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke={c} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+const IcoPlus    = ({c="#fff",s=20})    => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke={c} strokeWidth="2.5" strokeLinecap="round"/></svg>;
+const IcoMinus   = ({c="#fff",s=20})    => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke={c} strokeWidth="2.5" strokeLinecap="round"/></svg>;
+const IcoHistory = ({c=T.blue,s=20})    => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke={c} strokeWidth="2"/><path d="M12 7v5l3 3" stroke={c} strokeWidth="2" strokeLinecap="round"/></svg>;
+const IcoTrash   = ({c=T.red,s=16})     => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+const IcoEdit    = ({c=T.blue,s=16})    => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+const IcoRefresh = ({c="rgba(255,255,255,0.8)",s=16}) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M1 4v6h6" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+const IcoCheck   = ({c="#fff",s=18})    => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L19 7" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+const IcoChart   = ({c=T.blue,s=20})    => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><rect x="3" y="13" width="4" height="8" rx="1" fill={c} opacity="0.5"/><rect x="10" y="8" width="4" height="13" rx="1" fill={c} opacity="0.75"/><rect x="17" y="4" width="4" height="17" rx="1" fill={c}/></svg>;
+const IcoDotsV   = ({c='#64748B',s=20}) => <svg width={s} height={s} viewBox="0 0 24 24" fill={c}><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>;
+const IcoGear    = ({c='#64748B',s=20}) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>;
+const IcoTabHoje = ({c}) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="17" rx="2" stroke={c} strokeWidth="2"/><line x1="8" y1="2" x2="8" y2="6" stroke={c} strokeWidth="2" strokeLinecap="round"/><line x1="16" y1="2" x2="16" y2="6" stroke={c} strokeWidth="2" strokeLinecap="round"/><line x1="3" y1="10" x2="21" y2="10" stroke={c} strokeWidth="2"/><circle cx="12" cy="15" r="2" fill={c}/></svg>;
+const IcoTabComprar = ({c}) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><line x1="3" y1="6" x2="21" y2="6" stroke={c} strokeWidth="2" strokeLinecap="round"/><path d="M16 10a4 4 0 01-8 0" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+
+// ─── Ícones de tela (módulo) ──────────────────────────────────────────────────
+const IcoWallet2 = () => (
+  <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+    <rect x="2" y="6" width="20" height="14" rx="3" stroke="#2F6FED" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M2 10h20" stroke="#2F6FED" strokeWidth="2"/>
+    <circle cx="16.5" cy="15.5" r="1.5" fill="#2F6FED"/>
+    <path d="M7 6V4.5A2.5 2.5 0 0 1 9.5 2h5A2.5 2.5 0 0 1 17 4.5V6" stroke="#2F6FED" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+const IcoCalendar2 = () => (
+  <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+    <rect x="3" y="5" width="18" height="16" rx="2" stroke="#2F6FED" strokeWidth="2"/>
+    <line x1="16" y1="3" x2="16" y2="7" stroke="#2F6FED" strokeWidth="2" strokeLinecap="round"/>
+    <line x1="8" y1="3" x2="8" y2="7" stroke="#2F6FED" strokeWidth="2" strokeLinecap="round"/>
+    <line x1="3" y1="11" x2="21" y2="11" stroke="#2F6FED" strokeWidth="2"/>
+  </svg>
+);
+const IcoClock2 = () => (
+  <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="9" stroke="#2F6FED" strokeWidth="2"/>
+    <path d="M12 7v5l3 3" stroke="#2F6FED" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+const IcoInfoCircle = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2F6FED" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9"/>
+    <line x1="12" y1="8" x2="12" y2="8.01"/>
+    <line x1="12" y1="12" x2="12" y2="16"/>
+  </svg>
+);
+const IcoStatusOk = ({c}) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="10" fill={c}/>
+    <path d="M7 12l3.5 3.5L17 8" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+const IcoStatusOnTrack = ({c}) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="10" fill={c}/>
+    <path d="M8 12h8" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"/>
+  </svg>
+);
+const IcoStatusDanger = ({c}) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="10" fill={c}/>
+    <path d="M9 9l6 6M15 9l-6 6" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"/>
+  </svg>
+);
+const IcoStatusWarn = ({c}) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="10" fill={c}/>
+    <path d="M12 8v4M12 16h.01" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"/>
+  </svg>
+);
+const IcoTrend = ({c, up}) => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <path d={up ? 'M3 17l5-5 4 4 6-7' : 'M3 7l5 5 4-4 6 7'} stroke={c} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d={up ? 'M14 10h5v5' : 'M14 14h5v-5'} stroke={c} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+const IcoCalHdr = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+    <rect x="3" y="5" width="18" height="16" rx="2" stroke={T.blue} strokeWidth="2"/>
+    <line x1="16" y1="3" x2="16" y2="7" stroke={T.blue} strokeWidth="2" strokeLinecap="round"/>
+    <line x1="8" y1="3" x2="8" y2="7" stroke={T.blue} strokeWidth="2" strokeLinecap="round"/>
+    <line x1="3" y1="11" x2="21" y2="11" stroke={T.blue} strokeWidth="2"/>
+  </svg>
+);
+
+// ─── Primitivos UI ────────────────────────────────────────────────────────────
+function Card({ children, style = {}, className = '' }) {
+  return <div className={className} style={{ background: T.card, borderRadius: T.r20, overflow: 'hidden', boxShadow: T.shadow, border: T.border, ...style }}>{children}</div>;
+}
+
+function Divider({ left = 60 }) {
+  return <div style={{ height: 1, background: T.sep, marginLeft: left }} />;
+}
+
+function ScreenHeader({ title, onBack, right }) {
+  return (
+    <div style={{
+      background: '#FFFFFF', padding: '14px 20px',
+      display: 'flex', alignItems: 'center', gap: 6,
+      borderBottom: `1px solid rgba(15,23,42,0.06)`,
+      position: 'sticky', top: 0, zIndex: 10,
+    }}>
+      {onBack && (
+        <button onClick={onBack} style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          width: 38, height: 38, borderRadius: 12,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginLeft: -8, flexShrink: 0,
+        }}>
+          <IcoBack c={T.blue} s={22} />
+        </button>
+      )}
+      <span style={{ flex: 1, fontSize: 18, fontWeight: 800, color: '#0F172A', letterSpacing: -0.4 }}>{title}</span>
+      {right}
+    </div>
+  );
+}
+
+// ─── Teclado numérico reutilizável ────────────────────────────────────────────
+function MoneyInput({ value, onChange, wrapperStyle = {}, valueStyle = {} }) {
+  const [raw, setRaw] = React.useState(value ? String(Math.round(value * 100)) : '');
+
+  const onChangeRef = React.useRef(onChange);
+  React.useEffect(() => { onChangeRef.current = onChange; });
+
+  React.useEffect(() => {
+    onChangeRef.current(parseInt(raw || '0', 10) / 100);
+  }, [raw]);
+
+  function pressKey(k) {
+    if (k === '⌫') { haptic('light'); setRaw(r => r.slice(0, -1)); return; }
+    if (raw.length >= 7) return;
+    haptic('light');
+    setRaw(r => r + k);
+  }
+
+  const cents = parseInt(raw || '0', 10);
+  const display = (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const pad = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+
+  return (
+    <div>
+      {/* Valor display */}
+      <div style={{ textAlign: 'center', padding: '18px 20px 14px', ...wrapperStyle }}>
+        <div style={{
+          fontSize: cents > 0 ? 46 : 40, fontWeight: 700,
+          color: cents > 0 ? T.text : T.textTer,
+          letterSpacing: -2, lineHeight: 1,
+          transition: 'font-size 0.15s, color 0.2s',
+          ...valueStyle,
+        }}>{cents > 0 ? display : 'R$ 0,00'}</div>
+      </div>
+      {/* Pad */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, padding: '0 16px' }}>
+        {pad.map((k, i) => (
+          <button key={i} onClick={() => k && pressKey(k)} style={{
+            height: 56, borderRadius: T.r14, border: 'none',
+            background: k === '⌫' ? '#F1F5F9' : (k === '' ? 'transparent' : T.card),
+            color: T.text, fontSize: k === '⌫' ? 20 : 23,
+            fontWeight: k === '⌫' ? 500 : 600, fontFamily: T.font,
+            cursor: k ? 'pointer' : 'default',
+            boxShadow: (k && k !== '⌫') ? '0 2px 6px rgba(15,23,42,0.06)' : 'none',
+            transition: 'background 0.1s',
+          }}>{k}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TELA 1 — Configuração
+// ═══════════════════════════════════════════════════════════════
+function TelaConfig({ onIniciar, saldoAnterior = 0, onCancelar = null }) {
+  const hoje = new Date();
+  const totalDiasNoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+  const diasRestantesDefault = totalDiasNoMes - hoje.getDate() + 1;
+
+  const [valor, setValor] = React.useState(0);
+  const [inputText, setInputText] = React.useState('');
+  const [isFocused, setIsFocused] = React.useState(false);
+  const [dias, setDias] = React.useState(diasRestantesDefault);
+  const inputRef = React.useRef(null);
+
+  const temSaldoAnterior = saldoAnterior !== 0;
+  const totalEfetivo = valor + saldoAnterior;
+  const valorDiario = dias > 0 ? totalEfetivo / dias : 0;
+  const podeIniciar = valor > 0 && dias > 0;
+
+  function handleFocus() {
+    setIsFocused(true);
+    setInputText(valor > 0 ? (valor % 1 === 0 ? String(valor) : valor.toFixed(2).replace('.', ',')) : '');
+  }
+  function handleBlur() {
+    setIsFocused(false);
+    const raw = (inputRef.current?.value || '').replace(/\./g, '').replace(',', '.');
+    setValor(parseFloat(raw) || 0);
+  }
+  function handleChange(e) { setInputText(e.target.value.replace(/[^0-9,.]/g, '')); }
+
+  const displayValue = isFocused
+    ? inputText
+    : (valor > 0 ? valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
+
+
+  const btnStep = {
+    width: 46, height: 46, borderRadius: '50%',
+    border: 'none', background: T.blueLight, color: T.blue,
+    fontSize: 26, fontWeight: 300, lineHeight: 1,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer', fontFamily: T.font, flexShrink: 0, userSelect: 'none',
+  };
+
+  const summaryRows = [
+    { icon: <IcoWallet2 />,   label: 'Valor do mês',    value: fmt(totalEfetivo), blue: false },
+    { icon: <IcoCalendar2 />, label: 'Dias planejados',  value: `${dias} dias`,    blue: false },
+    { icon: <IcoClock2 />,    label: 'Dá por dia',       value: fmt(valorDiario),  blue: true  },
+  ];
+
+  return (
+    <div style={{
+      background: T.bg, minHeight: '100%', overflowY: 'auto', overflowX: 'hidden',
+      padding: '20px 20px 36px', boxSizing: 'border-box', fontFamily: T.font,
+    }} className="screen-enter">
+
+      {/* Back — visível só quando há ciclo anterior para retornar */}
+      {onCancelar && (
+        <div style={{ marginBottom: 4, marginLeft: -6 }}>
+          <button onClick={onCancelar} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            width: 38, height: 38, borderRadius: 12,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <IcoBack c={T.blue} s={22} />
+          </button>
+        </div>
+      )}
+
+      {/* Header */}
+      <div style={{ textAlign: 'center', marginBottom: 20 }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: T.blueLight, borderRadius: 99, padding: '4px 12px', marginBottom: 12 }}>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: T.blue }} />
+          <span style={{ fontSize: 11, fontWeight: 700, color: T.blue, letterSpacing: 0.6, textTransform: 'uppercase' }}>Configuração</span>
+        </div>
+        <div style={{ fontSize: 26, fontWeight: 800, color: T.text, letterSpacing: -0.8, lineHeight: 1.2 }}>
+          Defina seu valor do mês
+        </div>
+        <div style={{ fontSize: 14, color: T.textSec, lineHeight: 1.5, maxWidth: 270, margin: '8px auto 0' }}>
+          Escolha quanto quer usar nos gastos do dia a dia.
+        </div>
+      </div>
+
+      {/* Saldo anterior */}
+      {temSaldoAnterior && (
+        <div className="pop-in" style={{
+          background: saldoAnterior > 0 ? '#ECFDF5' : '#FFF1F2',
+          borderRadius: 14, padding: '10px 14px', marginBottom: 12,
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <span style={{ fontSize: 18 }}>{saldoAnterior > 0 ? '🎉' : '⚠️'}</span>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: saldoAnterior > 0 ? T.green : T.red, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+              {saldoAnterior > 0 ? 'Saldo anterior' : 'Débito anterior'}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: saldoAnterior > 0 ? T.green : T.red }}>
+              {saldoAnterior > 0 ? '+' : ''}{fmt(saldoAnterior)} será {saldoAnterior > 0 ? 'somado' : 'descontado'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Card educativo — visível só no primeiro acesso */}
+      {!temSaldoAnterior && <div style={{
+        background: '#F4F8FF', borderRadius: 20, padding: '16px 18px',
+        boxShadow: '0 4px 16px rgba(47,111,237,0.08)', border: '1px solid rgba(47,111,237,0.14)',
+        marginBottom: 12,
+      }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: T.blue, marginBottom: 16, letterSpacing: 0.4, textTransform: 'uppercase' }}>Como chegar nesse valor</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1 }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2F6FED" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="1" y="7" width="22" height="14" rx="2"/><path d="M16 3H8L5 7h14L16 3z"/>
+            </svg>
+            <span style={{ fontSize: 10, color: '#475569', fontWeight: 600, textAlign: 'center', lineHeight: 1.3 }}>Entradas<br/>do mês</span>
+          </div>
+          <div style={{ fontSize: 18, color: '#94A3B8', fontWeight: 400, flexShrink: 0, lineHeight: 1 }}>−</div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1 }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2F6FED" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+            </svg>
+            <span style={{ fontSize: 10, color: '#475569', fontWeight: 600, textAlign: 'center', lineHeight: 1.3 }}>Investimentos</span>
+          </div>
+          <div style={{ fontSize: 18, color: '#94A3B8', fontWeight: 400, flexShrink: 0, lineHeight: 1 }}>−</div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1 }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2F6FED" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+            <span style={{ fontSize: 10, color: '#475569', fontWeight: 600, textAlign: 'center', lineHeight: 1.3 }}>Contas<br/>fixas</span>
+          </div>
+          <div style={{ fontSize: 18, color: '#94A3B8', fontWeight: 400, flexShrink: 0, lineHeight: 1 }}>=</div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 12, background: '#DBEAFE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2F6FED" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>
+              </svg>
+            </div>
+            <span style={{ fontSize: 10, color: T.blue, fontWeight: 700, textAlign: 'center', lineHeight: 1.3 }}>Valor do mês</span>
+          </div>
+        </div>
+      </div>}
+
+      {/* Card 1 — Valor */}
+      <div style={{
+        background: '#FFFFFF', borderRadius: 20, padding: '16px 18px',
+        boxShadow: '0 8px 24px rgba(15,23,42,0.07)', border: '1px solid rgba(15,23,42,0.05)',
+        marginBottom: 12,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <IcoWallet2 />
+          </div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.text, lineHeight: 1.3 }}>Valor do mês</div>
+            <div style={{ fontSize: 13, color: T.textSec, marginTop: 2, lineHeight: 1.3 }}>Valor disponível para gastos variáveis.</div>
+          </div>
+        </div>
+        <div
+          onClick={() => inputRef.current?.focus()}
+          style={{
+            border: `1.5px solid ${isFocused ? T.blue : '#E2E8F0'}`,
+            borderRadius: 16, padding: '12px 16px',
+            display: 'flex', alignItems: 'center',
+            background: isFocused ? '#F0F6FF' : '#F8FAFC',
+            boxShadow: isFocused ? '0 0 0 4px rgba(47,111,237,0.10)' : 'none',
+            transition: 'border-color 0.15s, background 0.15s, box-shadow 0.18s',
+            cursor: 'text',
+          }}
+        >
+          <span style={{ fontSize: 20, fontWeight: 600, color: valor > 0 ? '#334155' : '#CBD5E1', marginRight: 8, flexShrink: 0 }}>R$</span>
+          <input
+            ref={inputRef}
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            value={displayValue}
+            onChange={handleChange}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                const raw = (inputRef.current?.value || '').replace(/\./g, '').replace(',', '.');
+                const v = parseFloat(raw) || 0;
+                if (v > 0 && dias > 0) {
+                  haptic('success');
+                  onIniciar({ valorMensal: v + saldoAnterior, diasDoMes: dias });
+                } else {
+                  inputRef.current?.blur();
+                }
+              }
+            }}
+            placeholder="0,00"
+            style={{
+              border: 'none', outline: 'none', flex: 1, minWidth: 0,
+              fontSize: 36, fontWeight: 700,
+              color: valor > 0 ? T.text : '#CBD5E1',
+              fontFamily: T.font, background: 'transparent', letterSpacing: -1,
+            }}
+          />
+        </div>
+        {!isFocused && valor === 0 && (
+          <div style={{ textAlign: 'center', fontSize: 11, color: T.textTer, marginTop: 8, letterSpacing: 0.2 }}>
+            Toque no campo para digitar o valor
+          </div>
+        )}
+      </div>
+
+      {/* Card 2 — Dias */}
+      <div style={{
+        background: '#FFFFFF', borderRadius: 20, padding: '16px 18px',
+        boxShadow: '0 8px 24px rgba(15,23,42,0.07)', border: '1px solid rgba(15,23,42,0.05)',
+        marginBottom: 12,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <IcoCalendar2 />
+          </div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.text, lineHeight: 1.3 }}>Por quantos dias quer dividir?</div>
+            <div style={{ fontSize: 13, color: T.textSec, marginTop: 2, lineHeight: 1.3 }}>Use os dias restantes do mês ou ajuste como preferir.</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 28, marginBottom: 14 }}>
+          <button style={btnStep} onClick={() => { haptic('light'); setDias(d => Math.max(1, d - 1)); }}>−</button>
+          <div style={{ textAlign: 'center', minWidth: 80 }}>
+            <div style={{ fontSize: 52, fontWeight: 800, color: '#0F172A', lineHeight: 1 }}>{dias}</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: T.textSec, marginTop: 3, letterSpacing: 0.3 }}>dias</div>
+          </div>
+          <button style={btnStep} onClick={() => { haptic('light'); setDias(d => Math.min(60, d + 1)); }}>+</button>
+        </div>
+        <div style={{ background: T.blueLight, borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <IcoInfoCircle />
+          <span style={{ fontSize: 13, color: T.blue, fontWeight: 500, lineHeight: 1.4 }}>
+            Você pode mudar isso depois.
+          </span>
+        </div>
+      </div>
+
+      {/* Resumo */}
+      <div style={{
+        background: '#FFFFFF', borderRadius: 20, padding: '16px 18px',
+        boxShadow: '0 8px 24px rgba(15,23,42,0.07)', border: '1px solid rgba(15,23,42,0.05)',
+        marginBottom: 16,
+      }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: T.textSec, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.7 }}>Resumo do seu plano</div>
+        {summaryRows.map((row, i, arr) => (
+          <div key={row.label} style={{
+            borderBottom: i < arr.length - 1 ? `1px solid #F1F5F9` : 'none',
+            ...(row.blue ? { background: '#EEF4FF', borderRadius: 12, margin: '6px -6px 0', padding: '0 6px' } : {}),
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: row.blue ? '10px 0' : '9px 0' }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: row.blue ? '#DBEAFE' : '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {row.icon}
+              </div>
+              <span style={{ flex: 1, fontSize: 14, fontWeight: row.blue ? 600 : 500, color: row.blue ? T.blue : '#475569' }}>{row.label}</span>
+              <span style={{ fontSize: row.blue ? 17 : 15, fontWeight: 800, color: row.blue ? T.blue : T.text }}>{row.value}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* CTA */}
+      <button
+        onClick={() => { if (podeIniciar) { haptic('success'); onIniciar({ valorMensal: totalEfetivo, diasDoMes: dias }); } }}
+        style={{
+          width: '100%', height: 60, borderRadius: 18, border: 'none',
+          background: podeIniciar
+            ? 'linear-gradient(135deg, #4284F5 0%, #2563EB 100%)'
+            : '#F1F5F9',
+          color: podeIniciar ? '#FFFFFF' : '#94A3B8',
+          fontSize: 17, fontWeight: 700, fontFamily: T.font,
+          boxShadow: podeIniciar ? '0 12px 28px rgba(47,111,237,0.32)' : 'none',
+          cursor: podeIniciar ? 'pointer' : 'default',
+          letterSpacing: 0.1,
+          transition: 'background 0.2s, box-shadow 0.2s',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}
+      >
+        <span>Continuar</span>
+        {podeIniciar && (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+}
+
+// ─── SpendingGauge — régua segmentada de status ──────────────────────────────
+function SpendingGauge({ ratioMargem, flashColor }) {
+  function mapClamped(value, inMin, inMax, outMin, outMax) {
+    const clamped = Math.max(inMin, Math.min(inMax, value));
+    return outMin + (clamped - inMin) / (inMax - inMin) * (outMax - outMin);
+  }
+
+  let pos;
+  if (ratioMargem < 0) {
+    pos = mapClamped(ratioMargem, -1, 0, 5, 25);
+  } else if (ratioMargem < 0.25) {
+    pos = mapClamped(ratioMargem, 0, 0.25, 25, 50);
+  } else if (ratioMargem < 1) {
+    pos = mapClamped(ratioMargem, 0.25, 1, 50, 75);
+  } else {
+    pos = mapClamped(ratioMargem, 1, 2, 75, 95);
+  }
+
+  const SEGS = [
+    { label: 'Passou',    color: '#E35D6A' },
+    { label: 'Apertado',  color: '#E8B63E' },
+    { label: 'No plano',  color: '#2F6FED' },
+    { label: 'Com folga', color: '#31A46C' },
+  ];
+  const si = ratioMargem < 0 ? 0 : ratioMargem < 0.25 ? 1 : ratioMargem < 1 ? 2 : 3;
+
+  return (
+    <div style={{ marginTop: 22 }}>
+      {/* paddingTop/Bottom para o marcador 32px não ser clipado */}
+      <div style={{ position: 'relative', paddingTop: 12, paddingBottom: 12 }}>
+        <div style={{ display: 'flex', height: 14, borderRadius: 999, overflow: 'hidden' }}>
+          {SEGS.map((seg, i) => (
+            <div key={i} style={{ flex: 1, height: '100%', background: seg.color }} />
+          ))}
+        </div>
+        <div style={{
+          position: 'absolute',
+          left: `${pos}%`,
+          top: '50%', transform: 'translate(-50%, -50%)',
+          width: 32, height: 32, borderRadius: '50%',
+          background: '#FFFFFF',
+          border: `4px solid ${SEGS[si].color}`,
+          boxShadow: flashColor
+            ? `0 4px 14px rgba(15,23,42,0.22), 0 0 0 6px ${flashColor}44`
+            : '0 4px 14px rgba(15,23,42,0.22)',
+          transition: 'left 0.5s cubic-bezier(.2,.8,.3,1), box-shadow 0.4s cubic-bezier(.2,.8,.3,1)',
+          zIndex: 2,
+        }} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', marginTop: 6 }}>
+        {SEGS.map((seg, i) => (
+          <div key={i} style={{ textAlign: 'center' }}>
+            <span style={{
+              fontSize: i === si ? 11 : 10,
+              fontWeight: i === si ? 800 : 600,
+              color: seg.color,
+              letterSpacing: 0.1,
+            }}>{seg.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── WeeklyMiniChart — gráfico da semana atual (Seg–Dom) ─────────────────────
+function WeeklyMiniChart({ transacoes, valorDiarioBase, onAnalise, showLegend = true }) {
+  const BAR_H = 62;
+  const [activeBar, setActiveBar] = React.useState(null);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dow = today.getDay();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+
+  const dias = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const label = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+    const capitalized = label.charAt(0).toUpperCase() + label.slice(1, 3);
+    return {
+      key: fmtDateKey(d.toISOString()),
+      label: capitalized,
+      isToday: d.getTime() === today.getTime(),
+      isFuture: d.getTime() > today.getTime(),
+    };
+  });
+
+  const porDia = {};
+  transacoes.filter(t => t && t.tipo === 'gasto').forEach(t => {
+    const k = fmtDateKey(t.data);
+    porDia[k] = (porDia[k] || 0) + t.valor;
+  });
+
+  const values = dias.map(d => porDia[d.key] || 0);
+  const maxVal = Math.max(...values, valorDiarioBase, 1);
+  const refLineTop = Math.round(BAR_H * (1 - Math.min(valorDiarioBase / maxVal, 1)));
+
+  return (
+    <div style={{ marginTop: 20 }}>
+      <div style={{
+        background: '#FFFFFF', borderRadius: 28, padding: 24,
+        boxShadow: '0 8px 24px rgba(15,23,42,0.07)',
+        border: '1px solid rgba(15,23,42,0.05)',
+        minHeight: 220,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontSize: 21, fontWeight: 800, color: T.text }}>Esta semana</div>
+          {onAnalise && (
+            <button onClick={onAnalise} style={{
+              background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0',
+              fontSize: 13, fontWeight: 700, color: T.blue, fontFamily: T.font,
+            }}>Ver análise →</button>
+          )}
+        </div>
+        <div style={{ fontSize: 15, fontWeight: 500, color: T.textSec, marginTop: 4 }}>Seu ritmo de gastos nos últimos dias</div>
+        <div style={{ height: 96, marginTop: 14, position: 'relative', padding: '0 2px' }}>
+          <div style={{
+            position: 'absolute', left: 0, right: 0, top: refLineTop,
+            borderTop: `1px dashed ${T.blue}59`,
+            pointerEvents: 'none', zIndex: 1,
+          }} />
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: BAR_H, paddingTop: 8 }}>
+            {dias.map((d, i) => {
+              const val = values[i];
+              const isActive = activeBar === i;
+              const h = d.isFuture ? 6 : Math.max((val / maxVal) * BAR_H, val > 0 ? 12 : 6);
+              const barBg = d.isToday ? T.blue : d.isFuture ? 'transparent' : val === 0 ? '#CBD5E1' : T.green;
+              return (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, position: 'relative' }}>
+                  {/* Valor ao tocar */}
+                  {isActive && !d.isFuture && (
+                    <div style={{
+                      position: 'absolute', bottom: h + 8,
+                      background: '#1E293B', color: '#fff', fontSize: 10, fontWeight: 700,
+                      borderRadius: 6, padding: '3px 6px', whiteSpace: 'nowrap', zIndex: 10,
+                    }}>
+                      {val === 0 ? 'R$ 0' : fmt(val)}
+                    </div>
+                  )}
+                  <div
+                    onClick={() => setActiveBar(isActive ? null : i)}
+                    style={{
+                      width: 28, height: Math.max(h, 6), minHeight: 6, borderRadius: d.isFuture ? 4 : 8,
+                      background: barBg,
+                      border: d.isFuture ? `1.5px dashed #CBD5E1` : 'none',
+                      boxShadow: d.isToday ? '0 4px 12px rgba(47,111,237,0.28)' : isActive ? '0 0 0 2px rgba(47,111,237,0.4)' : 'none',
+                      transition: 'height 0.4s ease',
+                      cursor: d.isFuture ? 'default' : 'pointer',
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, padding: '0 2px' }}>
+            {dias.map((d, i) => (
+              <div key={i} style={{ width: 28, textAlign: 'center' }}>
+                <span style={{ fontSize: 12, fontWeight: d.isToday ? 800 : 700, color: d.isToday ? T.blue : '#94A3B8' }}>
+                  {d.label}
+                </span>
+              </div>
+            ))}
+          </div>
+          {showLegend && (
+          <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
+            {[{bg: T.blue, label: 'Hoje'}, {bg: T.green, label: 'Com gasto'}, {bg: '#CBD5E1', label: 'Sem gasto'}, {bg: 'transparent', border: '1.5px dashed #CBD5E1', label: 'Futuro'}].map(x => (
+              <div key={x.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: 8, height: 8, borderRadius: 2, background: x.bg, border: x.border }} />
+                <span style={{ fontSize: 9, color: T.textTer }}>{x.label}</span>
+              </div>
+            ))}
+          </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TELA 2 — Painel principal  (v4 — hierarquia reestruturada)
+// ═══════════════════════════════════════════════════════════════
+function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarExtra, onHistorico, onOpenMenu, onAnalise, onEditar, onAbrirMetaCompra, onRemoverMetaCompra, onExcluir }) {
+  const stats = calcStats(state);
+  const hoje = new Date();
+  const dataHoje = hoje.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+  const dataHojeDisplay = (dataHoje.charAt(0).toUpperCase() + dataHoje.slice(1)).replace('.,', ',').replace(/\.(\s|$)/, '$1');
+
+  const margemAteHoje = stats.disponivelHoje;
+  const ratioMargem = stats.valorDiarioBase > 0 ? margemAteHoje / stats.valorDiarioBase : 0;
+  const orcamentoUsadoPct = state.valorMensal > 0 ? (stats.totalGastos / (state.valorMensal + stats.totalEntradas)) * 100 : 0;
+  const status = getStatusDiario(stats);
+  const isPositive = margemAteHoje >= 0;
+
+  const cardBg    = isPositive ? T.greenLight : T.redLight;
+  const cardBorder = isPositive ? `1px solid rgba(49,164,108,0.14)` : `1px solid rgba(227,93,106,0.14)`;
+  const cardColor  = isPositive ? T.green : T.red;
+  const cardSub    = isPositive ? '#3D8A60' : '#9B4A55';
+  const statusLabel = ratioMargem < 0 ? 'Passou' : ratioMargem < 0.25 ? 'Apertado' : ratioMargem < 1 ? 'No plano' : 'Com folga';
+  const statusColor = ratioMargem < 0 ? T.red : ratioMargem < 0.25 ? T.yellow : ratioMargem < 1 ? T.blue : T.green;
+
+
+  const pct          = Math.min(orcamentoUsadoPct, 100);
+  const restantePct  = Math.max(0, 100 - pct);
+  const donutColor   = restantePct > 40 ? T.green : restantePct > 15 ? T.yellow : T.red;
+  const mainNumColor = ratioMargem < 0 ? T.red : ratioMargem < 0.25 ? T.yellow : '#0F172A';
+  const flashColor   = flashType === 'gasto' ? T.red : flashType === 'extra' ? T.green : null;
+  const hojeKey = fmtDateKey(new Date().toISOString());
+  const gastosHoje = state.transacoes.filter(t => t && t.tipo === 'gasto' && fmtDateKey(t.data) === hojeKey).reduce((s, t) => s + t.valor, 0);
+
+  return (
+    <div style={{ background: T.bg, minHeight: '100%', overflowY: 'auto', overflowX: 'hidden', padding: '24px 24px 40px' }}>
+
+      {/* ── Header ───────────────────────────────────────────── */}
+      <div style={{ paddingBottom: 20, borderBottom: '1px solid rgba(15,23,42,0.07)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <img src="assets/brand/hoje-da-icon.svg" width="32" height="32" alt="" style={{ borderRadius: 8, flexShrink: 0 }} />
+            <span style={{ fontSize: 26, fontWeight: 800, color: T.text, letterSpacing: -0.5 }}>Hoje Dá</span>
+          </div>
+          <button onClick={onOpenMenu} style={{
+            width: 38, height: 38, borderRadius: 12, cursor: 'pointer',
+            background: T.card, border: T.border,
+            boxShadow: '0 2px 6px rgba(15,23,42,0.05)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <IcoGear c="#64748B" s={18} />
+          </button>
+        </div>
+        <div style={{ fontSize: 12, color: T.textTer, marginTop: 3, marginBottom: 2, letterSpacing: 0.2 }}>
+          Clareza. Controle. Liberdade.
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <IcoCalHdr />
+            <span style={{ fontSize: 13, fontWeight: 500, color: T.textSec }}>{dataHojeDisplay}</span>
+          </div>
+          <span style={{ fontSize: 12, fontWeight: 700, color: T.textTer, background: T.bgAlt, borderRadius: 99, padding: '3px 10px' }}>
+            Dia {stats.diaAtual} de {state.diasDoMes}
+          </span>
+        </div>
+      </div>
+
+      {/* ── Banner ciclo expirado ─────────────────────────────── */}
+      {stats.diasRestantes === 0 && (
+        <div style={{
+          margin: '16px 0 0', borderRadius: 16, padding: '12px 16px',
+          background: T.yellowLight, border: `1px solid ${T.yellow}44`,
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <span style={{ fontSize: 20, flexShrink: 0 }}>🔔</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#7A5A00' }}>Seu ciclo encerrou!</div>
+            <div style={{ fontSize: 12, color: '#7A5A00', opacity: 0.8, marginTop: 1 }}>
+              Toque em ⚙️ → Novo mês para iniciar o próximo ciclo.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Card principal ───────────────────────────────────── */}
+      <div style={{
+        marginTop: 24, borderRadius: 30, padding: 28,
+        background: '#FFFFFF',
+        boxShadow: flashColor
+          ? `0 10px 32px rgba(15,23,42,0.09), 0 0 0 3px ${flashColor}55, 0 0 22px ${flashColor}30`
+          : '0 10px 32px rgba(15,23,42,0.09)',
+        border: '1px solid rgba(15,23,42,0.05)',
+        transition: 'box-shadow 0.4s cubic-bezier(.2,.8,.3,1)',
+      }}>
+        <div style={{ marginBottom: 10 }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            background: `${statusColor}1A`,
+            border: `1px solid ${statusColor}38`,
+            borderRadius: 999, paddingLeft: 9, paddingRight: 11, paddingTop: 4, paddingBottom: 4,
+          }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor, flexShrink: 0 }} />
+            <span style={{ fontSize: 11, fontWeight: 800, color: statusColor }}>
+              {statusLabel}
+            </span>
+          </span>
+        </div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: T.textTer, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 10 }}>
+          {isPositive ? 'Você pode gastar até' : 'Você passou do plano'}
+        </div>
+        <div key={flashId} className={flashType ? 'num-pop' : undefined} style={{ fontSize: 48, fontWeight: 800, color: mainNumColor, lineHeight: '54px', letterSpacing: -1.5, marginBottom: 6, transition: 'color 0.3s' }}>
+          {fmt(margemAteHoje)}
+        </div>
+        {isPositive && (
+          <div style={{ fontSize: 13, fontWeight: 500, color: T.textSec, marginBottom: 10 }}>
+            {margemAteHoje > stats.valorDiarioBase
+              ? `Meta diária: ${fmt(stats.valorDiarioBase)} — inclui margem acumulada dos dias anteriores.`
+              : 'Sem sair do plano do mês.'}
+          </div>
+        )}
+        {!isPositive && <div style={{ marginBottom: 8 }} />}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+          {ratioMargem < 0 ? <IcoStatusDanger c={statusColor} /> : ratioMargem < 0.25 ? <IcoStatusWarn c={statusColor} /> : ratioMargem < 1 ? <IcoStatusOnTrack c={statusColor} /> : <IcoStatusOk c={statusColor} />}
+          <span style={{ fontSize: 20, fontWeight: 700, color: statusColor, lineHeight: 1.2 }}>{status.titulo}</span>
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 400, color: '#667085', lineHeight: '20px', maxWidth: '92%', marginBottom: 4 }}>
+          {status.frase}
+        </div>
+        <SpendingGauge ratioMargem={ratioMargem} flashColor={flashColor} />
+        {(() => {
+          const metaRec = stats.metaRecuperacaoDiaria;
+          const metaDiariaEfetiva = stats.economiaDiariaCompra > 0
+            ? stats.valorDiarioBase - stats.economiaDiariaCompra
+            : stats.valorDiarioBase;
+          const rightLabel = isPositive
+            ? (stats.economiaDiariaCompra > 0 ? 'Meta de compra' : 'Meta diária')
+            : 'Meta para recuperar';
+          const rightValue = isPositive
+            ? fmt(metaDiariaEfetiva)
+            : (metaRec != null && metaRec > 0 ? fmt(metaRec) : 'Muito acima');
+          const rightColor = isPositive ? '#0F172A' : (metaRec != null && metaRec > 0 ? T.red : T.red);
+          return (
+            <>
+              <div style={{ marginTop: 20, marginBottom: 16, height: 1, background: 'rgba(15,23,42,0.08)' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 1.2 }}>Gastei hoje</div>
+                  <div style={{ fontSize: gastosHoje > 0 ? 22 : 13, fontWeight: gastosHoje > 0 ? 800 : 500, color: gastosHoje > 0 ? T.red : T.textTer, letterSpacing: gastosHoje > 0 ? -0.5 : 0, marginTop: 2 }}>
+                    {gastosHoje > 0 ? fmt(gastosHoje) : 'Nenhum gasto hoje'}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 1.2 }}>{rightLabel}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: rightColor, letterSpacing: -0.5, marginTop: 2 }}>{rightValue}</div>
+                  {stats.economiaDiariaCompra > 0 && isPositive && (
+                    <div style={{ fontSize: 10, color: T.textTer, marginTop: 2 }}>inclui reserva p/ meta</div>
+                  )}
+                </div>
+              </div>
+            </>
+          );
+        })()}
+        {(() => {
+          const pctDia = stats.valorDiarioBase > 0 ? Math.min(gastosHoje / stats.valorDiarioBase, 1) : 0;
+          const barColor = pctDia >= 1 ? T.red : pctDia >= 0.75 ? T.yellow : T.green;
+          return (
+            <div style={{ height: 6, background: 'rgba(15,23,42,0.06)', borderRadius: 100, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: 100,
+                background: pctDia > 0 ? barColor : 'transparent',
+                width: `${pctDia * 100}%`,
+                transition: 'width 0.5s cubic-bezier(.2,.8,.3,1), background 0.3s ease',
+              }} />
+            </div>
+          );
+        })()}
+
+        {/* ── Restante no ciclo ────────────────────────────────── */}
+        <div style={{
+          marginTop: 12, paddingTop: 12,
+          borderTop: '1px solid rgba(15,23,42,0.07)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <span style={{ fontSize: 12, fontWeight: 500, color: T.textTer }}>Restante no ciclo</span>
+          <span style={{ fontSize: 14, fontWeight: 800, color: stats.saldoTotalRestante >= 0 ? T.green : T.red }}>
+            {fmt(stats.saldoTotalRestante)}
+          </span>
+        </div>
+      </div>
+
+      {/* ── Botões de ação ───────────────────────────────────── */}
+      <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <button onClick={onRegistrarGasto} style={{
+          height: 72, borderRadius: 20, border: 'none', cursor: 'pointer',
+          background: T.red, color: '#fff', fontSize: 18, fontWeight: 800, fontFamily: T.font,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          boxShadow: `0 8px 20px rgba(227,93,106,0.30)`,
+        }}>
+          <IcoMinus s={20} /> Gastei
+        </button>
+        <button onClick={onAdicionarExtra} style={{
+          height: 72, borderRadius: 20, border: 'none', cursor: 'pointer',
+          background: T.green, color: '#fff', fontSize: 18, fontWeight: 800, fontFamily: T.font,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          boxShadow: `0 8px 20px rgba(49,164,108,0.28)`,
+        }}>
+          <IcoPlus s={20} /> Recebi
+        </button>
+      </div>
+
+      {/* ── Esta semana ──────────────────────────────────────── */}
+      <WeeklyMiniChart transacoes={state.transacoes} valorDiarioBase={stats.valorDiarioBase} onAnalise={onAnalise} showLegend={false} />
+
+      {/* ── Métricas do mês ──────────────────────────────────── */}
+      <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div style={{
+          background: '#FFFFFF', borderRadius: 20, padding: '18px 18px 16px',
+          boxShadow: '0 4px 16px rgba(15,23,42,0.06)', border: '1px solid rgba(15,23,42,0.05)',
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.textSec, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Total gasto</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: T.text, letterSpacing: -0.5, lineHeight: 1 }}>{fmt(stats.totalGastos)}</div>
+          <div style={{ fontSize: 12, color: T.textTer, marginTop: 7 }}>em {stats.diaAtual} de {state.diasDoMes} dias</div>
+        </div>
+        {stats.diaAtual >= 5 ? (
+          <div style={{
+            background: stats.projecaoDiff >= 0 ? T.greenLight : T.redLight,
+            borderRadius: 20, padding: '18px 18px 16px',
+            boxShadow: '0 4px 16px rgba(15,23,42,0.06)',
+            border: `1px solid ${stats.projecaoDiff >= 0 ? 'rgba(49,164,108,0.16)' : 'rgba(227,93,106,0.16)'}`,
+          }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: T.textSec, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Previsão do mês</div>
+            <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.5, lineHeight: 1, color: stats.projecaoDiff >= 0 ? T.green : T.red }}>
+              {stats.projecaoDiff >= 0 ? 'Vai sobrar' : 'Vai passar'}
+            </div>
+            <div style={{ fontSize: 12, marginTop: 7, fontWeight: 600, color: stats.projecaoDiff >= 0 ? '#3D8A60' : '#9B4A55' }}>
+              {fmt(Math.abs(stats.projecaoDiff))} {stats.projecaoDiff >= 0 ? 'no fim do ciclo' : 'acima do plano'}
+            </div>
+          </div>
+        ) : (
+          <div style={{
+            background: T.bgAlt, borderRadius: 20, padding: '18px 18px 16px',
+            boxShadow: '0 4px 16px rgba(15,23,42,0.06)', border: T.border,
+            display: 'flex', flexDirection: 'column', justifyContent: 'center',
+          }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: T.textSec, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Previsão do mês</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.textSec, lineHeight: 1.3 }}>Dados insuficientes</div>
+            <div style={{ fontSize: 12, color: T.textTer, marginTop: 6, lineHeight: 1.4 }}>Disponível após 5 dias de uso.</div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Estado vazio ─────────────────────────────────────── */}
+      {state.transacoes.length === 0 && (
+        <div style={{
+          marginTop: 20, textAlign: 'center', padding: '28px 20px',
+          background: T.card, borderRadius: 24,
+          border: T.border, boxShadow: '0 4px 16px rgba(15,23,42,0.05)',
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 10 }}>✍️</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 6 }}>Nenhum movimento ainda</div>
+          <div style={{ fontSize: 13, color: T.textSec, lineHeight: 1.6 }}>
+            Use os botões acima para registrar<br />seu primeiro gasto ou entrada.
+          </div>
+        </div>
+      )}
+
+      {/* ── Últimas movimentações ────────────────────────────── */}
+      {state.transacoes.length > 0 && (
+        <div style={{ marginTop: 20 }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 28, overflow: 'hidden', boxShadow: '0 8px 24px rgba(15,23,42,0.07)', border: '1px solid rgba(15,23,42,0.05)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px 24px 16px' }}>
+              <span style={{ fontSize: 21, fontWeight: 800, color: T.text }}>Últimos movimentos</span>
+              <button onClick={onHistorico} style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 15, color: T.blue, fontWeight: 700, fontFamily: T.font,
+              }}>
+                Ver tudo
+              </button>
+            </div>
+            <div style={{ paddingBottom: 8 }}>
+              {[...state.transacoes].sort((a, b) => new Date(b.data) - new Date(a.data)).slice(0, 3).map((t, i) => {
+                const isGasto = t.tipo === 'gasto';
+                const cat = isGasto ? getCat(t.categoria) : (t.categoria ? getIncomeCat(t.categoria) : null);
+                const isToday = fmtDateKey(t.data) === fmtDateKey(new Date().toISOString());
+                const dateLabel = isToday ? `Hoje, ${fmtTime(t.data)}` : fmtDate(t.data);
+                return (
+                  <div key={t.id}>
+                    {i > 0 && <div style={{ height: 1, background: 'rgba(60,60,67,0.06)', marginLeft: 80 }} />}
+                    <button onClick={() => onEditar && onEditar(t)} style={{
+                      display: 'flex', alignItems: 'center', gap: 14, padding: '14px 24px',
+                      width: '100%', background: 'none', border: 'none', cursor: 'pointer', fontFamily: T.font,
+                      textAlign: 'left',
+                    }}>
+                      <div style={{
+                        width: 46, height: 46, borderRadius: 14, flexShrink: 0,
+                        background: isGasto ? '#FFF0F1' : '#ECFDF5',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+                      }}>{cat ? cat.emoji : '💚'}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 600, color: '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {t.descricao || (cat ? cat.label : 'Recebimento')}
+                        </div>
+                        <div style={{ fontSize: 13, color: '#94A3B8', marginTop: 2 }}>
+                          {cat ? cat.label : 'Entrada'} · {dateLabel}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: 15, fontWeight: 700, color: isGasto ? T.red : T.green }}>
+                            {isGasto ? '−' : '+'}{fmt(t.valor)}
+                          </span>
+                          <div style={{ fontSize: 10, color: T.textTer, marginTop: 1 }}>editar</div>
+                        </div>
+                        {onExcluir && (
+                          <button
+                            onClick={e => { e.stopPropagation(); haptic('light'); onExcluir(t.id); }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', color: T.textTer, borderRadius: 8 }}
+                          >
+                            <IcoTrash c={T.textTer} s={15} />
+                          </button>
+                        )}
+                      </div>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TELA 3/4 — Registrar gasto / Adicionar extra (+ Editar)
+// ═══════════════════════════════════════════════════════════════
+function TelaEntrada({ tipo, onSalvar, onVoltar, initialData = null }) {
+  const isGasto = tipo === 'gasto';
+  const isEdit  = !!initialData;
+  const [valor, setValor]       = React.useState(initialData ? initialData.valor : 0);
+  const [desc, setDesc]         = React.useState(initialData ? (initialData.descricao || '') : '');
+  const [categoria, setCategoria] = React.useState(
+    isGasto ? (initialData?.categoria || localStorage.getItem(SK_LAST_CAT) || 'alimentacao') : 'outros'
+  );
+  const [incomeCategoria, setIncomeCategoria] = React.useState(
+    !isGasto ? (initialData?.categoria || localStorage.getItem(SK_LAST_INCOME_CAT) || 'salario') : 'salario'
+  );
+  const [saved, setSaved]       = React.useState(false);
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [dataLancamento, setDataLancamento] = React.useState(
+    initialData?.data ? initialData.data.split('T')[0] : todayStr
+  );
+  const isRetroativo = dataLancamento !== todayStr;
+  const cor  = isGasto ? T.red   : T.green;
+  const bgCor = isGasto ? T.redLight : T.greenLight;
+
+  function salvar() {
+    if (!valor || valor <= 0) return;
+    haptic('success');
+    if (isGasto) localStorage.setItem(SK_LAST_CAT, categoria);
+    else localStorage.setItem(SK_LAST_INCOME_CAT, incomeCategoria);
+    onSalvar({ valor, descricao: desc.trim(), categoria: isGasto ? categoria : incomeCategoria, dataLancamento });
+    setSaved(true);
+    setTimeout(() => { setSaved(false); onVoltar(tipo); }, 700);
+  }
+
+  const selectedCat = getCat(categoria);
+  const selectedIncomeCat = getIncomeCat(incomeCategoria);
+
+  return (
+    <div style={{ background: T.bg, minHeight: '100%', display: 'flex', flexDirection: 'column' }} className="screen-enter">
+      <ScreenHeader
+        title={isEdit ? 'Editar lançamento' : (isGasto ? 'Quanto você gastou? 💸' : 'Quanto entrou? 💰')}
+        onBack={onVoltar}
+      />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+
+        {/* Badge tipo */}
+        <div style={{ textAlign: 'center', padding: '12px 0 4px' }}>
+          <span style={{ background: bgCor, color: cor, fontSize: 13, fontWeight: 700, padding: '6px 18px', borderRadius: 100 }}>
+            {isGasto ? `${selectedCat.emoji} ${selectedCat.label}` : `${selectedIncomeCat.emoji} ${selectedIncomeCat.label}`}
+          </span>
+        </div>
+
+        {/* Teclado */}
+        <MoneyInput value={valor} onChange={setValor} />
+
+        {/* Categorias de renda — só entradas */}
+        {!isGasto && (
+          <div style={{ padding: '8px 16px 0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 7 }}>
+              {INCOME_CATS.map(c => {
+                const sel = incomeCategoria === c.id;
+                return (
+                  <button key={c.id} onClick={() => { setIncomeCategoria(c.id); haptic('light'); }} style={{
+                    height: 56, borderRadius: T.r14, border: `1.5px solid ${sel ? c.cor : 'rgba(15,23,42,0.06)'}`,
+                    background: sel ? `${c.cor}15` : T.card,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
+                    cursor: 'pointer', transition: 'all 0.15s',
+                    boxShadow: sel ? `0 4px 12px ${c.cor}28` : 'none',
+                  }}>
+                    <span style={{ fontSize: 19 }}>{c.emoji}</span>
+                    <span style={{ fontSize: 9, fontWeight: sel ? 700 : 500, color: sel ? c.cor : T.textTer, fontFamily: T.font, lineHeight: 1 }}>
+                      {c.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Categorias — só gastos */}
+        {isGasto && (
+          <div style={{ padding: '8px 16px 0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 7 }}>
+              {CATS.map(c => {
+                const sel = categoria === c.id;
+                return (
+                  <button key={c.id} onClick={() => { setCategoria(c.id); haptic('light'); }} style={{
+                    height: 56, borderRadius: T.r14, border: `1.5px solid ${sel ? c.cor : 'rgba(15,23,42,0.06)'}`,
+                    background: sel ? `${c.cor}15` : T.card,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
+                    cursor: 'pointer', transition: 'all 0.15s',
+                    boxShadow: sel ? `0 4px 12px ${c.cor}28` : 'none',
+                  }}>
+                    <span style={{ fontSize: 19 }}>{c.emoji}</span>
+                    <span style={{ fontSize: c.label.length > 7 ? 8 : 9, fontWeight: sel ? 700 : 500, color: sel ? c.cor : T.textTer, fontFamily: T.font, lineHeight: 1.2, textAlign: 'center', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                      {c.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Descrição */}
+        <div style={{ padding: '10px 16px 0' }}>
+          <div style={{ background: T.card, borderRadius: T.r14, padding: '0 16px', display: 'flex', alignItems: 'center', gap: 10, border: '1px solid rgba(15,23,42,0.06)' }}>
+            <span style={{ fontSize: 16, flexShrink: 0 }}>{isGasto ? '📝' : '💬'}</span>
+            <input
+              value={desc}
+              onChange={e => setDesc(e.target.value)}
+              placeholder={isGasto ? 'Adicione uma descrição...' : 'De onde veio esse dinheiro?'}
+              maxLength={40}
+              style={{
+                flex: 1, background: 'none', border: 'none', outline: 'none',
+                fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 500, padding: '15px 0',
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Data do lançamento */}
+        <div style={{ padding: '8px 16px 0' }}>
+          <div style={{
+            background: T.card, borderRadius: T.r14, padding: '0 16px',
+            display: 'flex', alignItems: 'center', gap: 10,
+            border: `1px solid ${isRetroativo ? T.blue : 'rgba(15,23,42,0.06)'}`,
+            transition: 'border-color 0.2s',
+          }}>
+            <span style={{ fontSize: 16, flexShrink: 0 }}>📅</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 10, color: T.textTer, fontWeight: 600, paddingTop: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Data do lançamento
+              </div>
+              <input
+                type="date"
+                value={dataLancamento}
+                max={todayStr}
+                onChange={e => setDataLancamento(e.target.value)}
+                style={{
+                  border: 'none', outline: 'none', fontSize: 14, color: T.text,
+                  fontFamily: T.font, fontWeight: 500, paddingBottom: 10,
+                  background: 'transparent', width: '100%',
+                }}
+              />
+            </div>
+            {isRetroativo && (
+              <span style={{ fontSize: 11, color: T.blue, fontWeight: 700, flexShrink: 0, background: T.blueLight, padding: '3px 8px', borderRadius: 8 }}>
+                Retroativo
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Botão confirmar */}
+        <div style={{ padding: '16px' }}>
+          <button onClick={salvar} disabled={!valor || valor <= 0} style={{
+            width: '100%', height: 60, borderRadius: 18, border: 'none',
+            cursor: valor > 0 ? 'pointer' : 'default',
+            background: saved ? T.green : ((!valor || valor <= 0) ? '#E2ECFF' : cor),
+            color: (!valor || valor <= 0) ? '#93C5FD' : '#fff',
+            fontSize: 17, fontWeight: 800, fontFamily: T.font,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            boxShadow: (valor > 0 && !saved) ? `0 8px 20px ${cor}44` : 'none',
+            transition: 'all 0.22s',
+            opacity: (!valor || valor <= 0) ? 0.6 : 1,
+          }}>
+            {saved ? <><IcoCheck /> Pronto, anotado ✅</> : (isEdit ? 'Salvar alteração' : 'Confirmar')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TELA 5 — Histórico
+// ═══════════════════════════════════════════════════════════════
+function TelaHistorico({ transacoes, onExcluir, onEditar, onVoltar }) {
+  const [expandido, setExpandido] = React.useState(null);
+  const [busca, setBusca] = React.useState('');
+  const [confirmandoId, setConfirmandoId] = React.useState(null);
+  const [filtroTipo, setFiltroTipo] = React.useState('todos');
+
+  const query = busca.trim().toLowerCase();
+  const transacoesFiltradas = (() => {
+    let res = filtroTipo === 'gastos'   ? transacoes.filter(t => t.tipo === 'gasto')
+            : filtroTipo === 'entradas' ? transacoes.filter(t => t.tipo === 'extra')
+            : transacoes;
+    if (!query) return res;
+    return res.filter(t => {
+      const cat = t.tipo === 'gasto' ? getCat(t.categoria) : (t.categoria ? getIncomeCat(t.categoria) : null);
+      const desc = (t.descricao || '').toLowerCase();
+      const catLabel = (cat?.label || '').toLowerCase();
+      return desc.includes(query) || catLabel.includes(query);
+    });
+  })();
+
+  const grupos = {};
+  [...transacoesFiltradas].reverse().forEach(t => {
+    const d = fmtDateKey(t.data);
+    if (!grupos[d]) grupos[d] = [];
+    grupos[d].push(t);
+  });
+
+  const totalGastos = transacoes.filter(t => t.tipo === 'gasto').reduce((s, t) => s + t.valor, 0);
+  const totalEntradas = transacoes.filter(t => t.tipo === 'extra').reduce((s, t) => s + t.valor, 0);
+
+  return (
+    <div style={{ background: T.bg, minHeight: '100%', paddingBottom: 28 }} className="screen-enter">
+      <ScreenHeader title="Movimentos" onBack={onVoltar} />
+
+      {/* Totais */}
+      {transacoes.length > 0 && (
+        <div style={{ display: 'flex', gap: 10, padding: '14px 16px 0' }}>
+          <div style={{ flex: 1, background: T.redLight, borderRadius: T.r14, padding: '12px 14px' }}>
+            <div style={{ fontSize: 11, color: T.red, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>Gasto total</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: T.red }}>{fmt(totalGastos)}</div>
+          </div>
+          <div style={{ flex: 1, background: T.greenLight, borderRadius: T.r14, padding: '12px 14px' }}>
+            <div style={{ fontSize: 11, color: T.green, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>Entradas</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: T.green }}>{fmt(totalEntradas)}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Filtros por tipo */}
+      {transacoes.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, padding: '10px 16px 0' }}>
+          {[
+            { id: 'todos',    label: 'Todos'    },
+            { id: 'gastos',   label: 'Gastos'   },
+            { id: 'entradas', label: 'Entradas' },
+          ].map(f => (
+            <button key={f.id} onClick={() => { setFiltroTipo(f.id); setExpandido(null); }} style={{
+              height: 30, paddingLeft: 14, paddingRight: 14, borderRadius: 99, cursor: 'pointer',
+              border: filtroTipo === f.id ? 'none' : `1px solid rgba(15,23,42,0.1)`,
+              background: filtroTipo === f.id ? T.blue : T.bg,
+              color: filtroTipo === f.id ? '#fff' : T.textSec,
+              fontSize: 13, fontWeight: 700, fontFamily: T.font,
+            }}>{f.label}</button>
+          ))}
+        </div>
+      )}
+
+      {/* Campo de busca */}
+      {transacoes.length > 0 && (
+        <div style={{ padding: '12px 16px 0' }}>
+          <div style={{
+            background: T.card, borderRadius: T.r14, padding: '0 14px',
+            display: 'flex', alignItems: 'center', gap: 10,
+            border: `1px solid ${busca ? T.blue : 'rgba(15,23,42,0.07)'}`,
+            transition: 'border-color 0.15s',
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <circle cx="11" cy="11" r="7" stroke={busca ? T.blue : T.textTer} strokeWidth="2"/>
+              <path d="M16.5 16.5l4 4" stroke={busca ? T.blue : T.textTer} strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            <input
+              value={busca}
+              onChange={e => { setBusca(e.target.value); setExpandido(null); }}
+              placeholder="Buscar por descrição ou categoria..."
+              style={{
+                flex: 1, background: 'none', border: 'none', outline: 'none',
+                fontSize: 14, color: T.text, fontFamily: T.font, fontWeight: 500, padding: '13px 0',
+              }}
+            />
+            {busca && (
+              <button onClick={() => setBusca('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="9" fill={T.sep}/>
+                  <path d="M9 9l6 6M15 9l-6 6" stroke={T.textTer} strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {transacoes.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '72px 24px 32px' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>📭</div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: T.text, marginBottom: 6 }}>Nenhum movimento ainda</div>
+          <div style={{ fontSize: 14, color: T.textSec, lineHeight: 1.5 }}>Use os botões na tela principal<br/>para registrar gastos ou entradas.</div>
+        </div>
+      )}
+
+      {transacoes.length > 0 && transacoesFiltradas.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '48px 24px 32px' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>🔍</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 4 }}>Nada encontrado</div>
+          <div style={{ fontSize: 13, color: T.textSec }}>Tente outra descrição ou categoria.</div>
+        </div>
+      )}
+
+      {Object.entries(grupos).map(([key, items]) => (
+        <div key={key} style={{ padding: '14px 16px 0' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.textTer, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>{fmtDate(items[0].data)}</div>
+          <Card>
+            {items.map((t, i) => {
+              const isGasto = t.tipo === 'gasto';
+              const cat = isGasto ? getCat(t.categoria) : (t.categoria ? getIncomeCat(t.categoria) : null);
+              const aberto = expandido === t.id;
+              return (
+                <div key={t.id}>
+                  {i > 0 && <Divider left={66} />}
+                  <div
+                    onClick={() => { haptic('light'); setExpandido(p => p === t.id ? null : t.id); setConfirmandoId(null); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
+                      cursor: 'pointer', background: aberto ? T.bg : 'transparent',
+                      transition: 'background 0.15s',
+                    }}
+                  >
+                    <div style={{
+                      width: 44, height: 44, borderRadius: 13, flexShrink: 0,
+                      background: isGasto ? T.redLight : T.greenLight,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+                    }}>{cat ? cat.emoji : '💚'}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {t.descricao || (cat ? cat.label : 'Recebimento')}
+                      </div>
+                      <div style={{ fontSize: 12, color: T.textTer, marginTop: 2 }}>
+                        {cat ? cat.label : 'Entrada'} · {fmtTime(t.data)}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: isGasto ? T.red : T.green }}>
+                        {isGasto ? '−' : '+'}{fmt(t.valor)}
+                      </div>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ marginTop: 4, transform: aberto ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s ease' }}>
+                        <path d="M9 6l6 6-6 6" stroke={aberto ? T.blue : T.textTer} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                  </div>
+                  {aberto && (
+                    <div className="fade-in" style={{ display: 'flex', gap: 8, padding: '0 16px 14px' }}>
+                      {confirmandoId !== t.id ? (
+                        <>
+                          <button onClick={() => { haptic('light'); onEditar(t); }} style={{
+                            flex: 1, height: 40, borderRadius: T.r12,
+                            border: `1.5px solid rgba(47,111,237,0.2)`, background: T.blueLight, color: T.blue,
+                            fontSize: 13, fontWeight: 700, fontFamily: T.font, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                          }}>
+                            <IcoEdit /> Editar
+                          </button>
+                          <button onClick={() => { haptic('light'); setConfirmandoId(t.id); }} style={{
+                            flex: 1, height: 40, borderRadius: T.r12,
+                            border: `1.5px solid rgba(216,36,50,0.2)`, background: T.redLight, color: T.red,
+                            fontSize: 13, fontWeight: 700, fontFamily: T.font, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                          }}>
+                            <IcoTrash /> Excluir
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => { haptic('light'); setConfirmandoId(null); }} style={{
+                            flex: 1, height: 40, borderRadius: T.r12,
+                            border: `1.5px solid rgba(15,23,42,0.08)`, background: T.bg, color: T.textSec,
+                            fontSize: 13, fontWeight: 700, fontFamily: T.font, cursor: 'pointer',
+                          }}>
+                            Cancelar
+                          </button>
+                          <button onClick={() => { haptic('error'); onExcluir(t.id); setExpandido(null); setConfirmandoId(null); }} style={{
+                            flex: 1, height: 40, borderRadius: T.r12,
+                            border: 'none', background: T.red, color: '#fff',
+                            fontSize: 13, fontWeight: 700, fontFamily: T.font, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                            boxShadow: '0 4px 12px rgba(227,93,106,0.35)',
+                          }}>
+                            <IcoTrash c="#fff" /> Confirmar exclusão
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </Card>
+        </div>
+      ))}
+      <div style={{ height: 28 }} />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TELA 6 — Análise (gráfico de evolução + calendário 7 dias)
+// ═══════════════════════════════════════════════════════════════
+function TelaAnalise({ state, onVoltar }) {
+  const stats = calcStats(state);
+  const hoje = new Date();
+  const inicioDate = new Date(state.dataInicio);
+
+  // ── Gráfico de evolução: saldo acumulado por dia (O(n) otimizado) ────────────
+  const diasDecorridos = stats.diaAtual;
+  const inicioMidnight = new Date(inicioDate);
+  inicioMidnight.setHours(0, 0, 0, 0);
+  const gastosPorDia = new Array(diasDecorridos).fill(0);
+  const extrasPorDia = new Array(diasDecorridos).fill(0);
+  state.transacoes.forEach(t => {
+    const td = new Date(t.data);
+    td.setHours(0, 0, 0, 0);
+    const idx = Math.floor((td - inicioMidnight) / 86400000);
+    if (idx >= 0 && idx < diasDecorridos) {
+      if (t.tipo === 'gasto') gastosPorDia[idx] += t.valor;
+      else extrasPorDia[idx] += t.valor;
+    }
+  });
+  const maxGasto = Math.max(...gastosPorDia, stats.valorDiarioBase * 1.5, 1);
+  const fmtY = v => v >= 1000 ? `${(v / 1000).toFixed(1).replace('.0', '')}k` : `${Math.round(v)}`;
+
+  // ── Próximos 7 dias: projeção com ritmo real ──────────────────
+  // delta diário = base − média gasta → reflete velocidade atual de consumo
+  const saldoAtual = stats.disponivelHoje;
+  const deltaLiquido = stats.valorDiarioBase - stats.mediaGastoPorDia;
+  const proximos7 = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(hoje);
+    d.setDate(hoje.getDate() + i + 1);
+    const diaProj = i + 1;
+    const projecao = saldoAtual + deltaLiquido * diaProj;
+    const diaSemana = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+    const diaNum = d.getDate();
+    return { diaNum, diaSemana, projecao };
+  });
+
+  const projecaoDiff = stats.projecaoDiff;
+  const projecaoPos = projecaoDiff >= 0;
+  const highlightColor = projecaoPos ? T.blue : T.red;
+
+  return (
+    <div style={{ background: T.bg, minHeight: '100%', paddingBottom: 28 }} className="screen-enter">
+      <ScreenHeader title="Análise do mês" onBack={onVoltar} />
+
+      {/* ── Projeção do mês — insight principal ──────────────── */}
+      <div style={{ margin: '14px 16px 0' }}>
+        <div style={{
+          background: projecaoPos
+            ? 'linear-gradient(135deg, #EAF7F0 0%, #FFFFFF 100%)'
+            : 'linear-gradient(135deg, #FDECEF 0%, #FFFFFF 100%)',
+          borderRadius: 22, padding: '18px 20px',
+          border: `1px solid ${projecaoPos ? 'rgba(49,164,108,0.18)' : 'rgba(227,93,106,0.18)'}`,
+          boxShadow: '0 8px 24px rgba(15,23,42,0.07)',
+          display: 'flex', alignItems: 'center', gap: 16,
+        }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: 14, flexShrink: 0,
+            background: projecaoPos ? T.greenLight : T.redLight,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <IcoTrend c={highlightColor} up={projecaoPos} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.textSec, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
+              Como o mês deve terminar
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: highlightColor, letterSpacing: -0.5, lineHeight: 1, marginBottom: 6 }}>
+              {projecaoPos ? '+' : ''}{fmt(projecaoDiff)}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: T.textSec, lineHeight: 1.4 }}>
+              {projecaoPos
+                ? 'No ritmo atual, você deve terminar no positivo.'
+                : 'No ritmo atual, você passa do orçamento. Ainda dá tempo de ajustar.'}
+            </div>
+            {stats.diaAtual < 5 && (
+              <div style={{ fontSize: 11, color: T.textTer, marginTop: 5, fontStyle: 'italic' }}>
+                * Projeção baseada em menos de 5 dias — pode variar.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Resumo rápido ─────────────────────────────────────── */}
+      <div style={{ margin: '10px 16px 0', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+        {[
+          { label: 'Média/dia', value: fmt(stats.mediaGastoPorDia), color: T.red },
+          { label: 'Meta/dia',  value: fmt(stats.valorDiarioBase),  color: T.blue },
+          { label: 'Diferença', value: fmt(stats.valorDiarioBase - stats.mediaGastoPorDia), color: stats.mediaGastoPorDia <= stats.valorDiarioBase ? T.green : T.red },
+        ].map(c => (
+          <div key={c.label} style={{ background: T.card, borderRadius: T.r14, padding: '12px 12px', boxShadow: T.shadow, border: T.border }}>
+            <div style={{ fontSize: 10, color: T.textSec, fontWeight: 600, marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.4 }}>{c.label}</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: c.color }}>{c.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Gráfico: gasto por dia ────────────────────────────── */}
+      <div style={{ margin: '12px 16px 0' }}>
+        <Card>
+          <div style={{ padding: '16px 16px 18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+              <span style={{ fontSize: 15, fontWeight: 800, color: T.text }}>Gasto por dia</span>
+              <span style={{ fontSize: 12, color: T.textTer, fontWeight: 600 }}>
+                dia {diasDecorridos} de {state.diasDoMes}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, color: T.textSec, marginBottom: 14, fontWeight: 500 }}>
+              Comparado à sua meta diária
+            </div>
+
+            {(() => {
+              const totalDias = state.diasDoMes;
+              const CHART_H = 110;
+              const metaPct = Math.min(stats.valorDiarioBase / maxGasto, 1);
+              const avgPct  = diasDecorridos > 0 ? Math.min(stats.mediaGastoPorDia / maxGasto, 1) : 0;
+              const metaBottom = `${metaPct * 100}%`;
+              const avgBottom  = `${avgPct  * 100}%`;
+              const displayGastos = Array.from({ length: totalDias }, (_, i) => gastosPorDia[i] || 0);
+              const xFontSize = totalDias > 20 ? 7 : 8;
+              function barCor(g) {
+                if (g > stats.valorDiarioBase) return T.red;
+                if (g > stats.valorDiarioBase * 0.75) return T.yellow;
+                return T.green;
+              }
+              return (
+                <div>
+                  <div style={{ display: 'flex', gap: 0, alignItems: 'stretch' }}>
+                    {/* Y-axis labels */}
+                    <div style={{ width: 36, flexShrink: 0, height: CHART_H, position: 'relative' }}>
+                      <span style={{ position: 'absolute', top: 0, right: 4, fontSize: 9, color: T.textTer, fontWeight: 600, lineHeight: 1 }}>
+                        {fmtY(maxGasto)}
+                      </span>
+                      <span style={{ position: 'absolute', top: '50%', right: 4, fontSize: 9, color: T.textTer, fontWeight: 600, transform: 'translateY(-50%)', lineHeight: 1 }}>
+                        {fmtY(maxGasto / 2)}
+                      </span>
+                      <span style={{ position: 'absolute', bottom: 0, right: 4, fontSize: 9, color: T.textTer, fontWeight: 600, lineHeight: 1 }}>
+                        0
+                      </span>
+                    </div>
+                    {/* Chart area */}
+                    <div style={{ flex: 1, height: CHART_H, position: 'relative' }}>
+                      {/* Grid lines */}
+                      {[0, 50, 100].map(p => (
+                        <div key={p} style={{ position: 'absolute', left: 0, right: 0, bottom: `${p}%`, height: 1, background: 'rgba(15,23,42,0.05)' }} />
+                      ))}
+                      {/* Meta line */}
+                      <div style={{ position: 'absolute', left: 0, right: 0, bottom: metaBottom, height: 1.5, background: T.blue, opacity: 0.55, zIndex: 2 }} />
+                      <span style={{ position: 'absolute', left: 2, bottom: metaBottom, fontSize: 8, fontWeight: 700, color: T.blue, lineHeight: 1, transform: 'translateY(-2px)', zIndex: 3 }}>Meta</span>
+                      {/* Média line */}
+                      {diasDecorridos > 0 && (
+                        <>
+                          <div style={{ position: 'absolute', left: 0, right: 30, bottom: avgBottom, height: 0, borderTop: '1.5px dashed rgba(100,116,139,0.55)', zIndex: 2 }} />
+                          <span style={{ position: 'absolute', right: 0, bottom: avgBottom, background: '#334155', color: '#fff', fontSize: 8, fontWeight: 700, borderRadius: 4, padding: '2px 4px', transform: 'translateY(50%)', zIndex: 3, whiteSpace: 'nowrap' }}>~{fmtY(stats.mediaGastoPorDia)}</span>
+                        </>
+                      )}
+                      {/* Bars */}
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: '100%', paddingBottom: 1 }}>
+                        {displayGastos.map((g, i) => {
+                          const isFuture = i >= diasDecorridos;
+                          const isToday  = i === diasDecorridos - 1;
+                          const cor = barCor(g);
+                          const barH = isFuture ? 4 : Math.max((g / maxGasto) * (CHART_H - 2), g > 0 ? 5 : 2);
+                          return (
+                            <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%' }}>
+                              <div style={{
+                                borderRadius: isFuture ? 4 : '3px 3px 0 0',
+                                height: barH,
+                                background: isFuture ? 'transparent' : (g === 0 ? 'rgba(15,23,42,0.08)' : cor),
+                                border: isFuture ? '1.5px dashed #CBD5E1' : 'none',
+                                opacity: (isToday || isFuture) ? 1 : 0.65,
+                                boxShadow: isToday && g > 0 ? `0 2px 8px ${cor}55` : 'none',
+                                transition: 'height 0.3s ease',
+                              }} />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  {/* X-axis */}
+                  <div style={{ display: 'flex', marginLeft: 36, gap: 2, marginTop: 5 }}>
+                    {displayGastos.map((_, i) => (
+                      <div key={i} style={{ flex: 1, textAlign: 'center' }}>
+                        <span style={{ fontSize: xFontSize, color: i === diasDecorridos - 1 ? T.blue : T.textTer, fontWeight: i === diasDecorridos - 1 ? 700 : 400 }}>
+                          {i + 1}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Legend */}
+                  <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+                    {[
+                      { bg: T.green, label: 'Abaixo da meta' },
+                      { bg: T.yellow, label: 'Próximo da meta' },
+                      { bg: T.red,   label: 'Acima da meta'  },
+                    ].map(x => (
+                      <div key={x.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: 2, background: x.bg }} />
+                        <span style={{ fontSize: 9, color: T.textSec }}>{x.label}</span>
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div style={{ width: 14, height: 4, borderRadius: 2, border: '1.5px dashed #CBD5E1' }} />
+                      <span style={{ fontSize: 9, color: T.textSec }}>Futuro</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div style={{ width: 14, height: 0, borderTop: '1.5px dashed rgba(100,116,139,0.6)' }} />
+                      <span style={{ fontSize: 9, color: T.textSec }}>Média atual</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div style={{ width: 14, height: 1.5, background: T.blue, opacity: 0.55 }} />
+                      <span style={{ fontSize: 9, color: T.textSec }}>Meta/dia</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </Card>
+      </div>
+
+      {/* ── Gastos por categoria ─────────────────────────────── */}
+      {(() => {
+        const gastosPorCat = {};
+        state.transacoes.filter(t => t.tipo === 'gasto').forEach(t => {
+          gastosPorCat[t.categoria] = (gastosPorCat[t.categoria] || 0) + t.valor;
+        });
+        const catItems = CATS.map(c => ({ ...c, total: gastosPorCat[c.id] || 0 })).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
+        if (catItems.length === 0) return null;
+        const maxCat = catItems[0].total;
+        const totalCat = catItems.reduce((s, c) => s + c.total, 0);
+        return (
+          <div style={{ margin: '12px 16px 0' }}>
+            <Card>
+              <div style={{ padding: '16px 16px 12px' }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: T.text, marginBottom: 3 }}>Gastos por categoria</div>
+                <div style={{ fontSize: 13, color: T.textSec, marginBottom: 14, fontWeight: 500 }}>Distribuição dos seus gastos no ciclo</div>
+                {catItems.map((c, i) => {
+                  const pct = totalCat > 0 ? Math.round((c.total / totalCat) * 100) : 0;
+                  const barPct = maxCat > 0 ? (c.total / maxCat) * 100 : 0;
+                  return (
+                    <div key={c.id}>
+                      {i > 0 && <Divider left={0} />}
+                      <div style={{ padding: '10px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: `${c.cor}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>{c.emoji}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{c.label}</span>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              <span style={{ fontSize: 10, fontWeight: 600, color: T.textTer }}>{pct}%</span>
+                              <span style={{ fontSize: 13, fontWeight: 800, color: T.text }}>{fmt(c.total)}</span>
+                            </div>
+                          </div>
+                          <div style={{ height: 5, background: T.bg, borderRadius: 100, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', borderRadius: 100, background: c.cor, width: `${barPct}%`, transition: 'width 0.5s ease' }} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          </div>
+        );
+      })()}
+
+      {/* ── Calendário próximos 7 dias ────────────────────────── */}
+      <div style={{ margin: '12px 16px 0' }}>
+        <Card>
+          <div style={{ padding: '16px 16px 8px' }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: T.text, marginBottom: 3 }}>Próximos 7 dias</div>
+            <div style={{ fontSize: 13, color: T.textSec, marginBottom: 16, fontWeight: 500 }}>
+              Projeção se manter o ritmo atual
+            </div>
+            {proximos7.map((d, i) => {
+              const { cor: dCor, bg: dBg } = corSaldo(d.projecao, stats.valorDiarioBase);
+              return (
+                <div key={i}>
+                  {i > 0 && <Divider left={0} />}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0' }}>
+                    <div style={{
+                      width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+                      background: dBg,
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: dCor, lineHeight: 1 }}>{d.diaNum}</div>
+                      <div style={{ fontSize: 9, color: dCor, fontWeight: 600, textTransform: 'uppercase', opacity: 0.8 }}>{d.diaSemana}</div>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: T.textSec }}>Saldo previsto</span>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: dCor }}>{fmt(d.projecao)}</span>
+                      </div>
+                      <div style={{ height: 5, background: T.bg, borderRadius: 100, overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', borderRadius: 100, background: dCor,
+                          width: `${Math.min(Math.max((d.projecao / (stats.valorDiarioBase * (stats.diaAtual + i + 1))) * 100, 0), 100)}%`,
+                          transition: 'width 0.4s ease',
+                        }} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+
+    </div>
+  );
+}
+
+// ─── Diálogo reiniciar (v4 — com opção de carregar saldo) ────────────────────
+function DialogReiniciar({ onConfirmar, onCancelar, saldoRestante }) {
+  const temSaldo = saldoRestante !== 0;
+  const saldoPos = saldoRestante > 0;
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+      zIndex: 100,
+    }}>
+      <div className="pop-in" style={{
+        background: T.card, borderRadius: `${T.r20}px ${T.r20}px 0 0`,
+        padding: '6px 20px 32px', width: '100%',
+      }}>
+        {/* Handle */}
+        <div style={{ width: 36, height: 4, borderRadius: 100, background: T.sep, margin: '12px auto 20px' }} />
+
+        <div style={{ fontSize: 20, fontWeight: 800, color: T.text, marginBottom: 6 }}>Novo mês 🔄</div>
+        <div style={{ fontSize: 14, color: T.textSec, marginBottom: 18, lineHeight: 1.5, fontWeight: 500 }}>
+          O histórico atual será encerrado e você vai configurar um novo ciclo.
+        </div>
+
+        {/* Saldo atual */}
+        {temSaldo && (
+          <div style={{
+            background: saldoPos ? T.greenLight : T.redLight,
+            borderRadius: T.r14, padding: '14px 16px', marginBottom: 16,
+            display: 'flex', alignItems: 'center', gap: 12,
+          }}>
+            <span style={{ fontSize: 24 }}>{saldoPos ? '💰' : '⚠️'}</span>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: saldoPos ? T.green : T.red, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>
+                {saldoPos ? 'Saldo disponível' : 'Saldo negativo'}
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: saldoPos ? T.green : T.red }}>
+                {fmt(Math.abs(saldoRestante))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {temSaldo && (
+            <button onClick={() => onConfirmar({ carregarSaldo: true })} style={{
+              width: '100%', height: 56, borderRadius: T.r16, border: 'none', cursor: 'pointer',
+              background: saldoPos ? T.green : T.red, color: '#fff',
+              fontSize: 15, fontWeight: 800, fontFamily: T.font,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
+              boxShadow: saldoPos ? `0 8px 20px rgba(7,128,61,0.28)` : `0 8px 20px rgba(216,36,50,0.28)`,
+            }}>
+              <span>{saldoPos ? `Levar ${fmt(saldoRestante)} para o próximo mês` : `Assumir dívida de ${fmt(Math.abs(saldoRestante))}`}</span>
+              <span style={{ fontSize: 11, opacity: 0.8, fontWeight: 500 }}>
+                {saldoPos ? 'Saldo será adicionado ao orçamento' : 'Débito será descontado do novo ciclo'}
+              </span>
+            </button>
+          )}
+
+          <button onClick={() => onConfirmar({ carregarSaldo: false })} style={{
+            width: '100%', height: 50, borderRadius: T.r14,
+            border: `1.5px solid rgba(15,23,42,0.10)`, background: T.bg, cursor: 'pointer',
+            color: T.text, fontSize: 15, fontWeight: 700, fontFamily: T.font,
+          }}>
+            {temSaldo ? 'Começar do zero' : 'Sim, iniciar novo ciclo'}
+          </button>
+
+          <button onClick={onCancelar} style={{
+            width: '100%', height: 44, borderRadius: T.r14,
+            border: 'none', background: 'none', cursor: 'pointer',
+            color: T.textSec, fontSize: 14, fontWeight: 600, fontFamily: T.font,
+          }}>Cancelar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Diálogo ajustar orçamento ────────────────────────────────────────────────
+function DialogAjustarOrcamento({ valorAtual, state, onConfirmar, onCancelar }) {
+  const [novoValor, setNovoValor] = React.useState(valorAtual);
+  const [inputText, setInputText] = React.useState(
+    valorAtual > 0 ? valorAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''
+  );
+  const [isFocused, setIsFocused] = React.useState(false);
+  const inputRef = React.useRef(null);
+
+  function handleFocus() {
+    setIsFocused(true);
+    setInputText(novoValor > 0 ? (novoValor % 1 === 0 ? String(novoValor) : novoValor.toFixed(2).replace('.', ',')) : '');
+  }
+  function handleBlur() {
+    setIsFocused(false);
+    const raw = (inputRef.current?.value || '').replace(/\./g, '').replace(',', '.');
+    setNovoValor(parseFloat(raw) || 0);
+  }
+  function handleChange(e) { setInputText(e.target.value.replace(/[^0-9,.]/g, '')); }
+
+  const displayValue = isFocused
+    ? inputText
+    : (novoValor > 0 ? novoValor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
+
+  const podeConfirmar = novoValor > 0;
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+      zIndex: 100,
+    }}>
+      <div className="pop-in" style={{
+        background: T.card, borderRadius: '20px 20px 0 0',
+        padding: '6px 20px 32px', width: '100%',
+      }}>
+        <div style={{ width: 36, height: 4, borderRadius: 100, background: T.sep, margin: '12px auto 20px' }} />
+        <div style={{ fontSize: 18, fontWeight: 800, color: T.text, marginBottom: 6 }}>Ajustar orçamento</div>
+        <div style={{ fontSize: 14, color: T.textSec, lineHeight: 1.5, marginBottom: 18 }}>
+          O novo valor substituirá o orçamento planejado. Suas movimentações serão mantidas.
+        </div>
+        <div
+          onClick={() => inputRef.current?.focus()}
+          style={{
+            border: `1.5px solid ${isFocused ? T.blue : '#E2E8F0'}`,
+            borderRadius: 14, padding: '10px 16px',
+            display: 'flex', alignItems: 'center',
+            background: isFocused ? '#F0F6FF' : '#FAFAFA',
+            transition: 'border-color 0.15s, background 0.15s',
+            cursor: 'text', marginBottom: 20,
+          }}
+        >
+          <span style={{ fontSize: 18, fontWeight: 600, color: '#334155', marginRight: 8, flexShrink: 0 }}>R$</span>
+          <input
+            ref={inputRef}
+            type="text"
+            inputMode="decimal"
+            value={displayValue}
+            onChange={handleChange}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            placeholder="0,00"
+            style={{
+              border: 'none', outline: 'none', flex: 1, minWidth: 0,
+              fontSize: 34, fontWeight: 700,
+              color: novoValor > 0 ? '#0F172A' : '#CBD5E1',
+              fontFamily: T.font, background: 'transparent', letterSpacing: -1,
+            }}
+          />
+        </div>
+        {/* Preview de impacto */}
+        {podeConfirmar && (() => {
+          const stats = calcStats(state);
+          const novaBase = stats.diasRestantes > 0 ? novoValor / state.diasDoMes : 0;
+          const baseAtual = stats.valorDiarioBase;
+          const diff = novaBase - baseAtual;
+          const diffPos = diff >= 0;
+          return (
+            <div style={{
+              background: T.bgAlt, borderRadius: T.r12, padding: '12px 14px', marginBottom: 14,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <div>
+                <div style={{ fontSize: 11, color: T.textSec, fontWeight: 600, marginBottom: 3 }}>Base/dia atual</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: T.text }}>{fmt(baseAtual)}</div>
+              </div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M9 6l6 6-6 6" stroke={T.textTer} strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 11, color: T.textSec, fontWeight: 600, marginBottom: 3 }}>Nova base/dia</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: diffPos ? T.green : T.red }}>{fmt(novaBase)}</div>
+              </div>
+              <div style={{
+                background: diffPos ? T.greenLight : T.redLight,
+                color: diffPos ? T.green : T.red,
+                fontSize: 12, fontWeight: 800, borderRadius: 8, padding: '4px 8px',
+              }}>
+                {diffPos ? '+' : ''}{fmt(diff)}
+              </div>
+            </div>
+          );
+        })()}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button
+            onClick={() => { if (podeConfirmar) { haptic('success'); onConfirmar(novoValor); } }}
+            style={{
+              width: '100%', height: 54, borderRadius: T.r16, border: 'none',
+              background: podeConfirmar ? T.blue : '#E2ECFF',
+              color: podeConfirmar ? '#fff' : '#93C5FD',
+              fontSize: 16, fontWeight: 800, fontFamily: T.font,
+              cursor: podeConfirmar ? 'pointer' : 'default',
+              boxShadow: podeConfirmar ? '0 8px 20px rgba(47,111,237,0.28)' : 'none',
+            }}
+          >
+            Confirmar novo valor
+          </button>
+          <button onClick={onCancelar} style={{
+            width: '100%', height: 44, borderRadius: T.r14,
+            border: 'none', background: 'none', cursor: 'pointer',
+            color: T.textSec, fontSize: 14, fontWeight: 600, fontFamily: T.font,
+          }}>Cancelar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ─── CardMetaCompra ───────────────────────────────────────────────────────────
+function CardMetaCompra({ state, stats, onEditar, onRemover }) {
+  const metas = state.metasCompra || [];
+
+  if (metas.length === 0) {
+    return (
+      <button
+        onClick={onEditar}
+        style={{
+          marginTop: 14, width: '100%', borderRadius: 16,
+          border: `1.5px dashed ${T.blue}55`,
+          background: T.blueLight, padding: '13px 16px',
+          display: 'flex', alignItems: 'center', gap: 12,
+          cursor: 'pointer', fontFamily: T.font,
+        }}
+      >
+        <div style={{ width: 38, height: 38, borderRadius: 10, background: `${T.blue}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🛒</div>
+        <div style={{ flex: 1, textAlign: 'left' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.blue }}>Quero comprar algo</div>
+          <div style={{ fontSize: 12, color: T.blue, opacity: 0.7, marginTop: 2 }}>Defina uma meta e veja o impacto no dia a dia</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke={T.blue} strokeWidth="2.5" strokeLinecap="round"/></svg>
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {metas.map(meta => {
+        const ms = calcMetaStat(meta, stats.saldoTotalRestante, stats.valorDiarioBase);
+        const barColor = ms.inviavel ? T.red : ms.pctTempo > 0.8 ? T.yellow : T.blue;
+        const dataFmt = new Date(meta.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        return (
+          <div key={meta.id} style={{
+            borderRadius: 20, padding: '16px 18px',
+            background: ms.inviavel ? T.redLight : T.blueLight,
+            border: `1px solid ${ms.inviavel ? T.red + '30' : T.blue + '22'}`,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: ms.inviavel ? `${T.red}20` : `${T.blue}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>🛒</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: ms.inviavel ? T.red : T.blue, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Meta de compra</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {meta.descricao || 'Compra planejada'} · {fmt(meta.valor)}
+                </div>
+              </div>
+              <button onClick={onEditar} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0, opacity: 0.7 }}>
+                <IcoEdit c={ms.inviavel ? T.red : T.blue} s={15} />
+              </button>
+            </div>
+
+            {ms.inviavel && (
+              <div style={{ background: 'white', borderRadius: 10, padding: '10px 12px', marginBottom: 12, display: 'flex', gap: 8, alignItems: 'flex-start', border: `1px solid ${T.red}25` }}>
+                <span style={{ fontSize: 14, flexShrink: 0 }}>⚠️</span>
+                <div style={{ fontSize: 12, fontWeight: 600, color: T.red, lineHeight: 1.4 }}>
+                  {ms.diasAteCompra <= 0 ? 'A data desta meta já passou. Edite para atualizar o prazo.' : 'Saldo insuficiente para realizar esta compra no prazo.'}
+                </div>
+              </div>
+            )}
+
+            {!ms.inviavel && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                <div style={{ background: 'white', borderRadius: 10, padding: '9px 12px' }}>
+                  <div style={{ fontSize: 10, color: T.textSec, fontWeight: 600, marginBottom: 3 }}>Prazo</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: T.text }}>{ms.diasAteCompra}d · {dataFmt}</div>
+                </div>
+                <div style={{ background: 'white', borderRadius: 10, padding: '9px 12px' }}>
+                  <div style={{ fontSize: 10, color: T.textSec, fontWeight: 600, marginBottom: 3 }}>Reservar/dia</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: T.text }}>{fmt(ms.economiaDiaria)}</div>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: T.textSec }}>Tempo do prazo</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: barColor }}>{Math.round(ms.pctTempo * 100)}%</span>
+              </div>
+              <div style={{ height: 8, background: 'rgba(15,23,42,0.10)', borderRadius: 100, overflow: 'hidden' }}>
+                <div style={{ height: '100%', borderRadius: 100, background: barColor, width: `${ms.pctTempo * 100}%`, transition: 'width 0.5s cubic-bezier(.2,.8,.3,1)' }} />
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Botão adicionar mais meta */}
+      <button
+        onClick={onEditar}
+        style={{
+          width: '100%', borderRadius: 14,
+          border: `1.5px dashed ${T.blue}55`,
+          background: T.blueLight, padding: '10px 16px',
+          display: 'flex', alignItems: 'center', gap: 10,
+          cursor: 'pointer', fontFamily: T.font,
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke={T.blue} strokeWidth="2.5" strokeLinecap="round"/></svg>
+        <span style={{ fontSize: 13, fontWeight: 700, color: T.blue }}>Adicionar meta de compra</span>
+      </button>
+    </div>
+  );
+}
+
+// ─── FormMetaCompra (subcomponente reutilizável) ─────────────────────────────
+function FormMetaCompra({ meta, stats, onSalvar, onCancelar, onRemover }) {
+  const [valor, setValor] = React.useState(meta?.valor || 0);
+  const [inputValorText, setInputValorText] = React.useState(
+    meta?.valor > 0 ? meta.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''
+  );
+  const [isFocused, setIsFocused] = React.useState(false);
+  const [data, setData] = React.useState(meta?.data || '');
+  const [descricao, setDescricao] = React.useState(meta?.descricao || '');
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const inputRef = React.useRef(null);
+
+  const minDate = (() => {
+    const d = new Date(); d.setDate(d.getDate() + 1);
+    return fmtDateKey(d.toISOString());
+  })();
+
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dataCompraDate = data ? new Date(data + 'T00:00:00') : null;
+  const diasAteCompra = dataCompraDate ? Math.max(0, Math.ceil((dataCompraDate - hoje) / 86400000)) : 0;
+  const economiaPorDia = diasAteCompra > 0 && valor > 0 ? valor / diasAteCompra : 0;
+  const metaDiariaEfetiva = stats.valorDiarioBase - economiaPorDia;
+
+  const motivoInviavel = (() => {
+    if (!valor || !data) return '';
+    if (diasAteCompra <= 0) return 'A data deve ser uma data futura.';
+    if (valor > stats.saldoTotalRestante) return `O valor excede seu saldo disponível (${fmt(stats.saldoTotalRestante)}).`;
+    if (metaDiariaEfetiva <= 0) return 'A meta de compra consumiria toda a sua meta diária. Reduza o valor ou aumente o prazo.';
+    return '';
+  })();
+
+  const inviavel = valor > 0 && diasAteCompra > 0 && motivoInviavel !== '';
+  const podeConfirmar = valor > 0 && diasAteCompra > 0 && !inviavel;
+
+  function handleFocus() {
+    setIsFocused(true);
+    setInputValorText(valor > 0 ? valor.toFixed(2).replace('.', ',') : '');
+  }
+  function handleBlur() {
+    setIsFocused(false);
+    const raw = (inputRef.current?.value || '').replace(/\./g, '').replace(',', '.');
+    setValor(parseFloat(raw) || 0);
+  }
+
+  const displayValor = isFocused
+    ? inputValorText
+    : (valor > 0 ? valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
+
+  function handleConfirmar() {
+    if (!podeConfirmar) return;
+    haptic('success');
+    onSalvar({ id: meta?.id || null, valor, data, descricao: descricao.trim() });
+  }
+
+  return (
+    <div className="screen-enter" style={{ background: T.bg, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{
+        background: '#FFF', padding: '14px 20px',
+        display: 'flex', alignItems: 'center', gap: 6,
+        borderBottom: `1px solid rgba(15,23,42,0.06)`,
+        position: 'sticky', top: 0, zIndex: 10,
+      }}>
+        {onCancelar && (
+          <button onClick={onCancelar} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            width: 38, height: 38, borderRadius: 12,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginLeft: -8, flexShrink: 0,
+          }}>
+            <IcoBack c={T.blue} s={22} />
+          </button>
+        )}
+        <span style={{ flex: 1, fontSize: 18, fontWeight: 800, color: '#0F172A', letterSpacing: -0.4 }}>
+          {meta ? 'Editar meta' : 'Nova meta'}
+        </span>
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 40px' }}>
+        {!meta && (
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <div style={{ fontSize: 48, marginBottom: 10 }}>🛒</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 6 }}>Planeje sua próxima compra</div>
+            <div style={{ fontSize: 13, color: T.textSec, lineHeight: 1.6 }}>
+              Defina o valor e o prazo. O app calcula quanto reservar por dia e ajusta sua meta diária automaticamente.
+            </div>
+          </div>
+        )}
+
+        {/* Valor */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: T.textSec, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.7 }}>Quanto custa?</div>
+          <div
+            onClick={() => inputRef.current?.focus()}
+            style={{ border: `1.5px solid ${isFocused ? T.blue : '#E2E8F0'}`, borderRadius: 14, padding: '10px 16px', display: 'flex', alignItems: 'center', background: isFocused ? '#F0F6FF' : '#FAFAFA', transition: 'border-color 0.15s, background 0.15s', cursor: 'text' }}
+          >
+            <span style={{ fontSize: 18, fontWeight: 600, color: '#334155', marginRight: 8, flexShrink: 0 }}>R$</span>
+            <input
+              ref={inputRef}
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              value={displayValor}
+              onChange={e => setInputValorText(e.target.value.replace(/[^0-9,.]/g, ''))}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              placeholder="0,00"
+              style={{ border: 'none', outline: 'none', flex: 1, fontSize: 32, fontWeight: 700, color: valor > 0 ? T.text : '#CBD5E1', fontFamily: T.font, background: 'transparent', letterSpacing: -0.8 }}
+            />
+          </div>
+        </div>
+
+        {/* Data */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: T.textSec, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.7 }}>Quando quer comprar?</div>
+          <input
+            type="date"
+            value={data}
+            min={minDate}
+            onChange={e => setData(e.target.value)}
+            style={{
+              width: '100%', height: 52, borderRadius: 14,
+              border: `1.5px solid ${data ? T.blue : '#E2E8F0'}`,
+              padding: '0 16px', fontSize: 16, fontWeight: 600,
+              color: data ? T.text : '#CBD5E1',
+              fontFamily: T.font, background: data ? '#F0F6FF' : '#FAFAFA',
+              outline: 'none', boxSizing: 'border-box',
+            }}
+          />
+        </div>
+
+        {/* Descrição */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: T.textSec, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.7 }}>O que é? (opcional)</div>
+          <input
+            type="text"
+            value={descricao}
+            onChange={e => setDescricao(e.target.value)}
+            placeholder="Ex: Tênis, TV, Viagem..."
+            style={{
+              width: '100%', height: 48, borderRadius: 14,
+              border: '1.5px solid #E2E8F0', padding: '0 16px',
+              fontSize: 15, fontWeight: 500, color: T.text,
+              fontFamily: T.font, background: '#FAFAFA', outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
+
+        {/* Preview em tempo real */}
+        {valor > 0 && diasAteCompra > 0 ? (
+          <div style={{ marginBottom: 20 }}>
+            {inviavel ? (
+              <div style={{ background: T.redLight, borderRadius: 14, padding: '14px 16px', border: `1px solid ${T.red}30`, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: T.red, marginBottom: 4 }}>Plano inviável</div>
+                  <div style={{ fontSize: 13, color: T.red, lineHeight: 1.5 }}>{motivoInviavel}</div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ background: T.blueLight, borderRadius: 14, padding: '14px 16px', border: `1px solid ${T.blue}20` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: T.blue, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.7 }}>Impacto no dia a dia</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                  <div style={{ background: 'white', borderRadius: 12, padding: '11px 13px' }}>
+                    <div style={{ fontSize: 10, color: T.textSec, fontWeight: 600, marginBottom: 4 }}>Reservar por dia</div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: T.text }}>{fmt(economiaPorDia)}</div>
+                  </div>
+                  <div style={{ background: 'white', borderRadius: 12, padding: '11px 13px' }}>
+                    <div style={{ fontSize: 10, color: T.textSec, fontWeight: 600, marginBottom: 4 }}>Nova meta/dia</div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: T.green }}>{fmt(metaDiariaEfetiva)}</div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: T.blue, fontWeight: 500, lineHeight: 1.5 }}>
+                  Em <strong>{diasAteCompra} dias</strong> você terá <strong>{fmt(valor)}</strong> reservados.
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (valor > 0 || data) ? (
+          <div style={{ marginBottom: 20, background: T.bgAlt, borderRadius: 14, padding: '14px 16px', border: `1px dashed ${T.sep}`, textAlign: 'center' }}>
+            <div style={{ fontSize: 12, color: T.textTer, lineHeight: 1.5 }}>
+              {!valor ? 'Informe o valor' : 'Informe a data'} para ver o impacto em tempo real.
+            </div>
+          </div>
+        ) : null}
+
+        <button
+          onClick={handleConfirmar}
+          style={{
+            width: '100%', height: 54, borderRadius: T.r16, border: 'none',
+            background: podeConfirmar ? T.blue : '#E2ECFF',
+            color: podeConfirmar ? '#fff' : '#93C5FD',
+            fontSize: 16, fontWeight: 800, fontFamily: T.font,
+            cursor: podeConfirmar ? 'pointer' : 'default',
+            boxShadow: podeConfirmar ? '0 8px 20px rgba(47,111,237,0.28)' : 'none',
+            marginTop: 4,
+          }}
+        >
+          {meta ? 'Salvar alterações' : 'Confirmar meta'}
+        </button>
+
+        {onRemover && (
+          <div style={{ marginTop: 16 }}>
+            {confirmDelete ? (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setConfirmDelete(false)} style={{ flex: 1, height: 42, borderRadius: 12, border: `1px solid ${T.sep}`, background: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: T.textSec, fontFamily: T.font }}>Cancelar</button>
+                <button onClick={() => { haptic('light'); onRemover(); }} style={{ flex: 1, height: 42, borderRadius: 12, border: 'none', background: T.red, cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#fff', fontFamily: T.font }}>Remover meta</button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmDelete(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: T.textSec, fontFamily: T.font, display: 'flex', alignItems: 'center', gap: 5, margin: '0 auto' }}>
+                <IcoTrash c={T.textSec} s={14} /> Remover esta meta
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── CardMetaItem (card de meta na tela Quero Comprar) ────────────────────────
+function CardMetaItem({ meta, stats, onEditar, onRemover }) {
+  const [confirmDel, setConfirmDel] = React.useState(false);
+  const ms = calcMetaStat(meta, stats.saldoTotalRestante, stats.valorDiarioBase);
+  const barColor = ms.inviavel ? T.red : ms.pctTempo > 0.8 ? T.yellow : T.blue;
+  const dcDate = new Date(meta.data + 'T00:00:00');
+  const dataFmt = dcDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+  const diasDecorridos = meta.criadaEm
+    ? Math.max(0, Math.ceil((new Date().setHours(0,0,0,0) - new Date(meta.criadaEm).setHours(0,0,0,0)) / 86400000))
+    : 0;
+  const valorEconomizado = Math.min(meta.valor, ms.economiaDiaria * diasDecorridos);
+
+  return (
+    <div style={{ background: T.card, borderRadius: 24, padding: 22, boxShadow: T.shadow, border: T.border, marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: 18,
+          background: ms.inviavel ? T.redLight : T.blueLight,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, flexShrink: 0,
+        }}>🛒</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: ms.inviavel ? T.red : T.blue, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>Meta de compra</div>
+          <div style={{ fontSize: 19, fontWeight: 800, color: T.text }}>{meta.descricao || 'Compra planejada'}</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: T.textSec }}>{fmt(meta.valor)}</div>
+        </div>
+      </div>
+
+      {ms.inviavel && (
+        <div style={{ background: T.redLight, borderRadius: 12, padding: '12px 14px', marginBottom: 16, display: 'flex', gap: 10, alignItems: 'flex-start', border: `1px solid ${T.red}30` }}>
+          <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+          <div style={{ fontSize: 13, fontWeight: 600, color: T.red, lineHeight: 1.4 }}>
+            {ms.diasAteCompra <= 0 ? 'A data desta meta já passou. Edite para atualizar o prazo.' : 'Saldo insuficiente para realizar esta compra no prazo.'}
+          </div>
+        </div>
+      )}
+
+      {/* Barra de progresso */}
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 8 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: T.textSec, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>Economizado até hoje</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: barColor }}>
+              {fmt(valorEconomizado)}
+              <span style={{ fontSize: 12, fontWeight: 600, color: T.textSec }}> de {fmt(meta.valor)}</span>
+            </div>
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: barColor }}>{meta.valor > 0 ? Math.round(Math.min(valorEconomizado / meta.valor, 1) * 100) : 0}%</div>
+        </div>
+        <div style={{ height: 12, background: 'rgba(15,23,42,0.08)', borderRadius: 100, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%', borderRadius: 100, background: barColor,
+            width: `${meta.valor > 0 ? Math.min((valorEconomizado / meta.valor) * 100, 100) : 0}%`,
+            transition: 'width 0.6s cubic-bezier(.2,.8,.3,1)',
+          }} />
+        </div>
+      </div>
+
+      {/* Grid de stats */}
+      {!ms.inviavel && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
+          <div style={{ background: T.bg, borderRadius: 14, padding: '12px 14px' }}>
+            <div style={{ fontSize: 10, color: T.textSec, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>Reservar/dia</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: T.text }}>{fmt(ms.economiaDiaria)}</div>
+          </div>
+          <div style={{ background: T.bg, borderRadius: 14, padding: '12px 14px' }}>
+            <div style={{ fontSize: 10, color: T.textSec, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>Meta ajustada/dia</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: T.green }}>{fmt(stats.valorDiarioBase - ms.economiaDiaria)}</div>
+          </div>
+          <div style={{ background: T.bg, borderRadius: 14, padding: '12px 14px' }}>
+            <div style={{ fontSize: 10, color: T.textSec, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>Dias restantes</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: T.text }}>{ms.diasAteCompra}d</div>
+          </div>
+          <div style={{ background: T.bg, borderRadius: 14, padding: '12px 14px' }}>
+            <div style={{ fontSize: 10, color: T.textSec, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>Data prevista</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: T.text }}>{dataFmt}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Botões */}
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button
+          onClick={onEditar}
+          style={{ flex: 1, height: 46, borderRadius: 14, border: `1.5px solid ${T.blue}`, background: 'white', color: T.blue, fontSize: 14, fontWeight: 700, fontFamily: T.font, cursor: 'pointer' }}
+        >Editar meta</button>
+        {confirmDel ? (
+          <>
+            <button onClick={() => { haptic('light'); onRemover(meta.id); setConfirmDel(false); }}
+              style={{ flex: 1, height: 46, borderRadius: 14, border: 'none', background: T.red, color: 'white', fontSize: 14, fontWeight: 700, fontFamily: T.font, cursor: 'pointer' }}>
+              Confirmar
+            </button>
+            <button onClick={() => setConfirmDel(false)}
+              style={{ height: 46, padding: '0 14px', borderRadius: 14, border: `1.5px solid ${T.sep}`, background: 'white', color: T.textSec, fontSize: 14, fontFamily: T.font, cursor: 'pointer' }}>
+              Não
+            </button>
+          </>
+        ) : (
+          <button onClick={() => setConfirmDel(true)}
+            style={{ height: 46, padding: '0 16px', borderRadius: 14, border: `1.5px solid ${T.sep}`, background: 'white', color: T.textSec, fontSize: 14, fontFamily: T.font, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+            <IcoTrash c={T.textSec} s={16} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TELA — Quero Comprar (aba dedicada)
+// ═══════════════════════════════════════════════════════════════
+function TelaMetaCompra({ state, onConfirmar, onRemover }) {
+  const stats = calcStats(state);
+  const metas = state.metasCompra || [];
+  const [editingMeta, setEditingMeta] = React.useState(null);
+
+  function handleSalvar({ id, valor, data, descricao }) {
+    onConfirmar({ id, valor, data, descricao });
+    setEditingMeta(null);
+  }
+
+  function handleRemover(id) {
+    onRemover(id);
+    setEditingMeta(null);
+  }
+
+  if (editingMeta !== null) {
+    return (
+      <FormMetaCompra
+        key={editingMeta?.id || 'new'}
+        meta={editingMeta?.id ? editingMeta : null}
+        stats={stats}
+        onSalvar={handleSalvar}
+        onCancelar={() => setEditingMeta(null)}
+        onRemover={editingMeta?.id ? () => handleRemover(editingMeta.id) : null}
+      />
+    );
+  }
+
+  return (
+    <div className="screen-enter" style={{ background: T.bg, minHeight: '100%', overflowY: 'auto', padding: '24px 20px 40px' }}>
+      <div style={{ marginBottom: 22 }}>
+        <div style={{ fontSize: 26, fontWeight: 800, color: T.text, letterSpacing: -0.5 }}>Quero Comprar</div>
+        <div style={{ fontSize: 13, color: T.textSec, marginTop: 3 }}>
+          {metas.length === 0 ? 'Nenhuma meta ativa' : `${metas.length} meta${metas.length !== 1 ? 's ativas' : ' ativa'}`}
+        </div>
+      </div>
+
+      {metas.map(meta => (
+        <CardMetaItem
+          key={meta.id}
+          meta={meta}
+          stats={stats}
+          onEditar={() => setEditingMeta(meta)}
+          onRemover={handleRemover}
+        />
+      ))}
+
+      <button
+        onClick={() => setEditingMeta({})}
+        style={{
+          width: '100%', borderRadius: 16,
+          border: `1.5px dashed ${T.blue}55`,
+          background: T.blueLight, padding: '14px 16px',
+          display: 'flex', alignItems: 'center', gap: 12,
+          cursor: 'pointer', fontFamily: T.font,
+        }}
+      >
+        <div style={{ width: 38, height: 38, borderRadius: 10, background: `${T.blue}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🛒</div>
+        <div style={{ flex: 1, textAlign: 'left' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.blue }}>{metas.length === 0 ? 'Quero comprar algo' : 'Adicionar nova meta'}</div>
+          <div style={{ fontSize: 12, color: T.blue, opacity: 0.7, marginTop: 2 }}>
+            {metas.length === 0 ? 'Defina uma meta e veja o impacto no dia a dia' : 'Planeje mais uma compra'}
+          </div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke={T.blue} strokeWidth="2.5" strokeLinecap="round"/></svg>
+      </button>
+
+      {metas.length > 0 && stats.economiaDiariaCompra > 0 && (
+        <div style={{ background: T.blueLight, borderRadius: 14, padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 14 }}>
+          <span style={{ fontSize: 16, flexShrink: 0 }}>💡</span>
+          <div style={{ fontSize: 12, color: T.blue, lineHeight: 1.55 }}>
+            <strong>{fmt(stats.economiaDiariaCompra)}/dia</strong> total reservado para todas as metas. Isso já está descontado do seu orçamento diário.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// OnboardingScreen
+// ═══════════════════════════════════════════════════════════════
+function OnboardingScreen({ onComecar }) {
+  const steps = [
+    {
+      num: 1,
+      title: 'Defina o valor do mês',
+      desc: 'Escolha quanto pode usar nos gastos do dia a dia.',
+      icon: '💼',
+    },
+    {
+      num: 2,
+      title: 'Registre gastos e entradas',
+      desc: 'Anote o que saiu e o que entrou.',
+      icon: '📝',
+    },
+    {
+      num: 3,
+      title: 'O card te guia',
+      desc: 'Veja quanto ainda dá para gastar hoje. A barra mostra se está no plano, apertado ou com folga.',
+      icon: null,
+    },
+  ];
+
+  return (
+    <div style={{ background: '#F6F8FB', height: '100%', overflowX: 'hidden', fontFamily: T.font, display: 'flex', flexDirection: 'column' }} className="screen-enter">
+
+      {/* ── Hero ── */}
+      <div style={{
+        background: 'linear-gradient(155deg, #3D7FF5 0%, #2362DB 55%, #163B75 100%)',
+        borderRadius: '0 0 28px 28px',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        padding: '14px 24px 16px',
+        position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{ position: 'absolute', width: 280, height: 280, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.07)', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none' }} />
+        <div style={{
+          width: 96, height: 96, borderRadius: 26,
+          background: 'rgba(255,255,255,0.13)',
+          border: '1.5px solid rgba(255,255,255,0.28)',
+          boxShadow: '0 8px 28px rgba(0,0,0,0.20)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: 10,
+        }}>
+          <img src="assets/brand/hoje-da-icon.svg" width="72" height="72" alt="Hoje Dá" style={{ borderRadius: 18 }} />
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: -0.5, marginBottom: 3 }}>Hoje Dá</div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>Clareza. Controle. Liberdade.</div>
+      </div>
+
+      {/* ── Conteúdo ── */}
+      <div style={{ flex: 1, padding: '14px 22px 14px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+
+        {/* Badge + Heading */}
+        <div style={{ textAlign: 'center', marginBottom: 12 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 999, padding: '4px 14px', marginBottom: 10 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.blue, display: 'inline-block', flexShrink: 0 }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: T.blue }}>Seja bem-vindo</span>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.22, color: T.text, letterSpacing: -0.6, marginBottom: 4 }}>
+            Organize seus gastos<br />do dia a dia
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: T.textSec }}>Sem planilha. Sem complicação.</div>
+        </div>
+
+        {/* Section label */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <div style={{ flex: 1, height: 1, background: T.sep }} />
+          <span style={{ fontSize: 10, fontWeight: 700, color: T.blue, textTransform: 'uppercase', letterSpacing: 1.5, flexShrink: 0 }}>Como funciona</span>
+          <div style={{ flex: 1, height: 1, background: T.sep }} />
+        </div>
+
+        {/* Steps — lista unificada */}
+        <div style={{
+          flex: 1,
+          background: '#FFFFFF', borderRadius: 20,
+          boxShadow: T.shadow, border: T.border,
+          overflow: 'hidden', display: 'flex', flexDirection: 'column',
+          minHeight: 0,
+        }}>
+          {steps.map((step, i) => (
+            <React.Fragment key={i}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', flex: 1 }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                  background: T.blue,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 2px 8px rgba(47,111,237,0.30)',
+                }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: '#fff' }}>{step.num}</span>
+                </div>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+                  background: T.blueLight,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {i === 2 ? (
+                    <div style={{ display: 'flex', height: 10, width: 36, borderRadius: 5, overflow: 'hidden' }}>
+                      <div style={{ flex: 1, background: '#E35D6A' }} />
+                      <div style={{ flex: 1, background: '#E8B63E' }} />
+                      <div style={{ flex: 1, background: '#2F6FED' }} />
+                      <div style={{ flex: 1, background: '#31A46C' }} />
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: 22 }}>{step.icon}</span>
+                  )}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 2, lineHeight: 1.2 }}>{step.title}</div>
+                  <div style={{ fontSize: 12, fontWeight: 400, color: T.textSec, lineHeight: 1.4 }}>{step.desc}</div>
+                </div>
+              </div>
+              {i < steps.length - 1 && <div style={{ height: 1, background: T.sep, marginLeft: 58 }} />}
+            </React.Fragment>
+          ))}
+        </div>
+
+        {/* CTA */}
+        <div style={{ marginTop: 12 }}>
+          <button
+            onClick={onComecar}
+            style={{
+              height: 52, width: '100%', borderRadius: 16,
+              background: 'linear-gradient(180deg, #3D7FF5 0%, #2F6FED 100%)',
+              color: '#FFFFFF', fontSize: 17, fontWeight: 700,
+              boxShadow: '0 8px 24px rgba(47,111,237,0.30)',
+              border: 'none', cursor: 'pointer', fontFamily: T.font,
+              letterSpacing: -0.2,
+            }}
+          >
+            Entendi, vamos lá
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Snackbar ─────────────────────────────────────────────────────────────────
+function Snackbar({ message, action, onAction }) {
+  return (
+    <div className="pop-in" style={{
+      position: 'absolute', bottom: 72, left: 16, right: 16,
+      background: '#1E293B', borderRadius: 14, padding: '13px 16px',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+      boxShadow: '0 8px 28px rgba(0,0,0,0.35)', zIndex: 300,
+    }}>
+      <span style={{ fontSize: 14, color: '#F1F5F9', fontWeight: 500, flex: 1 }}>{message}</span>
+      {action && (
+        <button onClick={onAction} style={{
+          background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0,
+          fontSize: 13, fontWeight: 800, color: T.blueMid, fontFamily: T.font, padding: '2px 4px',
+        }}>{action}</button>
+      )}
+    </div>
+  );
+}
+
+// ─── Error Boundary ───────────────────────────────────────────────────────────
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 32, textAlign: 'center' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 8 }}>Algo deu errado</div>
+          <div style={{ fontSize: 13, color: T.textSec, marginBottom: 20 }}>{this.state.error.message}</div>
+          <button onClick={() => this.setState({ error: null })} style={{
+            background: T.blue, color: '#fff', border: 'none', borderRadius: T.r12,
+            padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: T.font,
+          }}>Tentar novamente</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ─── Tab Bar ─────────────────────────────────────────────────────────────────
+function TabBar({ tela, onChange }) {
+  const tabs = [
+    { id: 'painel',    label: 'Hoje',      icon: c => <IcoTabHoje c={c} /> },
+    { id: 'historico', label: 'Histórico', icon: c => <IcoHistory c={c} s={22} /> },
+    { id: 'analise',   label: 'Análise',   icon: c => <IcoChart c={c} s={22} /> },
+    { id: 'comprar',   label: 'Comprar',   icon: c => <IcoTabComprar c={c} /> },
+  ];
+  return (
+    <div style={{ background: '#FFFFFF', borderTop: '1px solid rgba(15,23,42,0.07)', display: 'flex', padding: '6px 0 10px', flexShrink: 0 }}>
+      {tabs.map(tab => {
+        const active = tela === tab.id;
+        const c = active ? T.blue : T.textTer;
+        return (
+          <button key={tab.id} onClick={() => onChange(tab.id)} style={{ flex: 1, border: 'none', background: 'none', cursor: 'pointer', fontFamily: T.font, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '4px 0' }}>
+            {tab.icon(c)}
+            <span style={{ fontSize: 10, fontWeight: active ? 700 : 500, color: c }}>{tab.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// App Root
+// ═══════════════════════════════════════════════════════════════
+function App() {
+  const TELAS = { config: 'config', painel: 'painel', gasto: 'gasto', extra: 'extra', historico: 'historico', editar: 'editar', analise: 'analise', comprar: 'comprar' };
+
+  const estadoInicial = () => loadState() || { configurado: false, valorMensal: 0, diasDoMes: 30, dataInicio: null, transacoes: [], metasCompra: [] };
+
+  const [state, setState]           = React.useState(estadoInicial);
+  const [tela, setTela]             = React.useState(() => (loadState()?.configurado ? TELAS.painel : TELAS.config));
+  const [showNovoMes, setShowNovoMes]               = React.useState(false);
+  const [showMenu, setShowMenu]                     = React.useState(false);
+  const [showAjustar, setShowAjustar]               = React.useState(false);
+  const [showConfirmRecomecar, setShowConfirmRecomecar] = React.useState(false);
+  const [editandoItem, setEditandoItem]             = React.useState(null);
+  const [onboardingVisto, setOnboardingVisto]       = React.useState(() => localStorage.getItem('onboardingSeen') === 'true');
+  const [flashId, setFlashId]                       = React.useState(0);
+  const [flashType, setFlashType]                   = React.useState(null);
+  const [snackbar, setSnackbar]                     = React.useState(null);
+  const snackTimerRef = React.useRef(null);
+  const deletedRef    = React.useRef(null);
+  const prevStateRef  = React.useRef(null);
+
+  function update(fn) {
+    setState(prev => { const next = fn(prev); saveState(next); return next; });
+  }
+
+  function showSnackbar(message, action, onAction, duration = 4000) {
+    if (snackTimerRef.current) clearTimeout(snackTimerRef.current);
+    setSnackbar({ message, action, onAction });
+    snackTimerRef.current = setTimeout(() => { setSnackbar(null); snackTimerRef.current = null; }, duration);
+  }
+
+  function triggerFlash(tipo) {
+    setFlashType(tipo);
+    setFlashId(id => id + 1);
+    setTimeout(() => setFlashType(null), 900);
+  }
+
+  function handleOnboardingVisto() {
+    localStorage.setItem('onboardingSeen', 'true');
+    setOnboardingVisto(true);
+    if (!loadState()?.configurado) setTela(TELAS.config);
+  }
+
+  function handleIniciar({ valorMensal, diasDoMes }) {
+    haptic('success');
+    prevStateRef.current = null;
+    const next = { configurado: true, valorMensal, diasDoMes, dataInicio: new Date().toISOString(), transacoes: [], metasCompra: state.metasCompra || [] };
+    saveState(next); setState(next); setTela(TELAS.painel);
+  }
+
+  function handleEntrada(tipo, { valor, descricao, categoria, dataLancamento }) {
+    const dataObj = dataLancamento ? new Date(dataLancamento + 'T12:00:00') : new Date();
+    update(prev => ({
+      ...prev,
+      transacoes: [{ id: Date.now(), tipo, valor, descricao, categoria, data: dataObj.toISOString() }, ...prev.transacoes],
+    }));
+  }
+
+  const [editReturnTela, setEditReturnTela] = React.useState(TELAS.historico);
+  function handleEditar(item, returnTela = TELAS.historico) { setEditReturnTela(returnTela); setEditandoItem(item); setTela(TELAS.editar); }
+
+  function handleSalvarEdicao({ valor, descricao, categoria, dataLancamento }) {
+    haptic('success');
+    const dataObj = dataLancamento ? new Date(dataLancamento + 'T12:00:00') : null;
+    update(prev => ({ ...prev, transacoes: prev.transacoes.map(t => t.id === editandoItem.id ? { ...t, valor, descricao, categoria, ...(dataObj ? { data: dataObj.toISOString() } : {}) } : t) }));
+  }
+
+  function handleExcluir(id) {
+    haptic('error');
+    deletedRef.current = state.transacoes.find(t => t.id === id) || null;
+    update(prev => ({ ...prev, transacoes: prev.transacoes.filter(t => t.id !== id) }));
+    showSnackbar('Transação excluída', 'Desfazer', () => {
+      if (deletedRef.current) {
+        update(prev => ({
+          ...prev,
+          transacoes: [...prev.transacoes, deletedRef.current].sort((a, b) => b.id - a.id),
+        }));
+        deletedRef.current = null;
+      }
+      setSnackbar(null);
+      if (snackTimerRef.current) { clearTimeout(snackTimerRef.current); snackTimerRef.current = null; }
+    });
+  }
+
+  function handleNovoMes({ carregarSaldo }) {
+    haptic('medium');
+    prevStateRef.current = state;
+    const stats = calcStats(state);
+    const saldoParaCarregar = carregarSaldo ? stats.saldoTotalRestante : 0;
+    const reset = {
+      configurado: false, valorMensal: 0, diasDoMes: 30,
+      dataInicio: null, transacoes: [],
+      metasCompra: state.metasCompra || [],
+      saldoAnterior: saldoParaCarregar,
+    };
+    saveState(reset); setState(reset); setShowNovoMes(false); setTela(TELAS.config);
+  }
+
+  function handleCancelarNovoMes() {
+    if (prevStateRef.current) {
+      saveState(prevStateRef.current);
+      setState(prevStateRef.current);
+      prevStateRef.current = null;
+      setTela(TELAS.painel);
+    }
+  }
+
+  function handleAjustarOrcamento(novoValor) {
+    update(prev => ({ ...prev, valorMensal: novoValor }));
+    setShowAjustar(false);
+  }
+
+  function handleSetMetaCompra({ id, valor, data, descricao }) {
+    update(prev => {
+      const metas = prev.metasCompra || [];
+      if (id) {
+        // Update existing
+        return { ...prev, metasCompra: metas.map(m => m.id === id ? { ...m, valor, data, descricao } : m) };
+      } else {
+        // Add new
+        return { ...prev, metasCompra: [...metas, { id: Date.now(), valor, data, descricao, criadaEm: new Date().toISOString() }] };
+      }
+    });
+  }
+
+  function handleRemoverMetaCompra(id) {
+    update(prev => ({ ...prev, metasCompra: (prev.metasCompra || []).filter(m => m.id !== id) }));
+  }
+
+  function handleExportarDados() {
+    const dados = { exportadoEm: new Date().toISOString(), app: 'Hoje Dá', versao: 'v6', dados: state };
+    const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hoijeda-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    haptic('success');
+  }
+
+  function handleRecomecarDoZero() {
+    haptic('medium');
+    const reset = { configurado: false, valorMensal: 0, diasDoMes: 30, dataInicio: null, transacoes: [], metasCompra: [] };
+    saveState(reset); setState(reset); setShowConfirmRecomecar(false);
+    setTela(TELAS.config);
+    localStorage.removeItem('onboardingSeen'); setOnboardingVisto(false);
+  }
+
+  const renderTela = () => {
+    switch (tela) {
+      case TELAS.config:    return <TelaConfig onIniciar={handleIniciar} saldoAnterior={state.saldoAnterior || 0} onCancelar={prevStateRef.current ? handleCancelarNovoMes : null} />;
+      case TELAS.painel:    return <TelaPainel state={state} flashId={flashId} flashType={flashType} onRegistrarGasto={() => setTela(TELAS.gasto)} onAdicionarExtra={() => setTela(TELAS.extra)} onHistorico={() => setTela(TELAS.historico)} onOpenMenu={() => setShowMenu(true)} onAnalise={() => setTela(TELAS.analise)} onEditar={item => handleEditar(item, TELAS.painel)} onAbrirMetaCompra={() => setTela(TELAS.comprar)} onRemoverMetaCompra={handleRemoverMetaCompra} onExcluir={handleExcluir} />;
+      case TELAS.gasto:     return <TelaEntrada tipo="gasto"  onSalvar={v => handleEntrada('gasto', v)}  onVoltar={(tipo) => { if (tipo) triggerFlash(tipo); setTela(TELAS.painel); }} />;
+      case TELAS.extra:     return <TelaEntrada tipo="extra"  onSalvar={v => handleEntrada('extra', v)}  onVoltar={(tipo) => { if (tipo) triggerFlash(tipo); setTela(TELAS.painel); }} />;
+      case TELAS.historico: return <TelaHistorico transacoes={state.transacoes} onExcluir={handleExcluir} onEditar={handleEditar} onVoltar={() => setTela(TELAS.painel)} />;
+      case TELAS.analise:    return <TelaAnalise state={state} onVoltar={() => setTela(TELAS.painel)} />;
+      case TELAS.editar:    return <TelaEntrada tipo={editandoItem?.tipo || 'gasto'} initialData={editandoItem} onSalvar={handleSalvarEdicao} onVoltar={(tipo) => { if (tipo) triggerFlash(tipo); setEditandoItem(null); setTela(editReturnTela); }} />;
+      case TELAS.comprar:   return <TelaMetaCompra state={state} onConfirmar={handleSetMetaCompra} onRemover={handleRemoverMetaCompra} />;
+      default: return null;
+    }
+  };
+
+  const showTabBar = ['painel', 'historico', 'analise', 'comprar'].includes(tela);
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <AndroidDevice width={390} height={844} dark={false}>
+        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', fontFamily: T.font, background: T.bg }}>
+          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+            {!onboardingVisto ? (
+              <OnboardingScreen onComecar={handleOnboardingVisto} />
+            ) : renderTela()}
+          </div>
+          {onboardingVisto && showTabBar && <TabBar tela={tela} onChange={setTela} />}
+          {onboardingVisto && (
+            <>
+              {showNovoMes && <DialogReiniciar onConfirmar={handleNovoMes} onCancelar={() => setShowNovoMes(false)} saldoRestante={calcStats(state).saldoTotalRestante} />}
+              {showAjustar && <DialogAjustarOrcamento valorAtual={state.valorMensal} state={state} onConfirmar={handleAjustarOrcamento} onCancelar={() => setShowAjustar(false)} />}
+              {showMenu && (
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 100 }} onClick={() => setShowMenu(false)}>
+                  <div className="pop-in" onClick={e => e.stopPropagation()} style={{ background: T.card, borderRadius: '20px 20px 0 0', padding: '6px 20px 32px', width: '100%' }}>
+                    <div style={{ width: 36, height: 4, borderRadius: 100, background: T.sep, margin: '12px auto 20px' }} />
+                    <div style={{ fontSize: 13, fontWeight: 700, color: T.textTer, textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 12 }}>Opções</div>
+                    {[
+                      { label: 'Ajustar orçamento', sub: 'Mudar o valor disponível para este ciclo', ico: '📝', action: () => { setShowMenu(false); setShowAjustar(true); }, danger: false },
+                      { label: 'Novo mês', sub: 'Encerrar o ciclo atual e começar um novo', ico: '🔄', action: () => { setShowMenu(false); setShowNovoMes(true); }, danger: false },
+                      { label: 'Exportar dados', sub: 'Baixar backup completo em JSON', ico: '📤', action: () => { setShowMenu(false); handleExportarDados(); }, danger: false },
+                      { label: 'Recomeçar do zero', sub: 'Apaga tudo e vai para o início', ico: '🗑️', action: () => { setShowMenu(false); setShowConfirmRecomecar(true); }, danger: true },
+                    ].map((item, i) => (
+                      <button key={i} onClick={item.action} style={{
+                        width: '100%', padding: '14px 16px', borderRadius: 14, border: 'none',
+                        background: item.danger ? T.redLight : T.bg,
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14,
+                        marginBottom: 10, fontFamily: T.font, textAlign: 'left',
+                      }}>
+                        <span style={{ fontSize: 22, flexShrink: 0 }}>{item.ico}</span>
+                        <div>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: item.danger ? T.red : T.text }}>{item.label}</div>
+                          <div style={{ fontSize: 12, color: T.textSec, marginTop: 2, lineHeight: 1.4 }}>{item.sub}</div>
+                        </div>
+                      </button>
+                    ))}
+                    <button onClick={() => setShowMenu(false)} style={{ width: '100%', height: 44, borderRadius: T.r14, border: 'none', background: 'none', cursor: 'pointer', color: T.textSec, fontSize: 14, fontWeight: 600, fontFamily: T.font }}>Cancelar</button>
+                  </div>
+                </div>
+              )}
+              {snackbar && (
+                <Snackbar
+                  message={snackbar.message}
+                  action={snackbar.action}
+                  onAction={snackbar.onAction}
+                />
+              )}
+              {showConfirmRecomecar && (
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 100 }}>
+                  <div className="pop-in" style={{ background: T.card, borderRadius: '20px 20px 0 0', padding: '6px 20px 32px', width: '100%' }}>
+                    <div style={{ width: 36, height: 4, borderRadius: 100, background: T.sep, margin: '12px auto 20px' }} />
+                    <div style={{ fontSize: 20, fontWeight: 800, color: T.text, marginBottom: 8 }}>Tem certeza?</div>
+                    <div style={{ fontSize: 14, color: T.textSec, lineHeight: 1.55, marginBottom: 24 }}>
+                      Todas as suas movimentações, orçamento e histórico serão apagados permanentemente. Essa ação não pode ser desfeita.
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <button onClick={handleRecomecarDoZero} style={{
+                        width: '100%', height: 54, borderRadius: T.r16, border: 'none',
+                        background: T.red, color: '#fff', fontSize: 16, fontWeight: 800,
+                        fontFamily: T.font, cursor: 'pointer',
+                        boxShadow: '0 8px 20px rgba(216,36,50,0.28)',
+                      }}>Sim, apagar tudo</button>
+                      <button onClick={() => setShowConfirmRecomecar(false)} style={{
+                        width: '100%', height: 44, borderRadius: T.r14, border: 'none',
+                        background: 'none', cursor: 'pointer',
+                        color: T.textSec, fontSize: 14, fontWeight: 600, fontFamily: T.font,
+                      }}>Cancelar</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </AndroidDevice>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<ErrorBoundary><App /></ErrorBoundary>);
+</script>
+<div id="root"></div>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
