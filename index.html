@@ -1967,7 +1967,7 @@ function DialogReiniciar({ onConfirmar, onCancelar, saldoRestante }) {
 
   return (
     <div style={{
-      position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)',
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
       zIndex: 100,
     }}>
@@ -2065,7 +2065,7 @@ function DialogAjustarOrcamento({ valorAtual, state, onConfirmar, onCancelar }) 
 
   return (
     <div style={{
-      position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)',
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
       zIndex: 100,
     }}>
@@ -2997,6 +2997,11 @@ function App() {
     }
   }
 
+  function handleVoltarParaOnboarding() {
+    localStorage.removeItem('onboardingSeen');
+    setOnboardingVisto(false);
+  }
+
   function handleAjustarOrcamento(novoValor) {
     update(prev => ({ ...prev, valorMensal: novoValor }));
     setShowAjustar(false);
@@ -3043,7 +3048,7 @@ function App() {
 
   const renderTela = () => {
     switch (tela) {
-      case TELAS.config:    return <TelaConfig onIniciar={handleIniciar} saldoAnterior={state.saldoAnterior || 0} onCancelar={prevStateRef.current ? handleCancelarNovoMes : null} />;
+      case TELAS.config:    return <TelaConfig onIniciar={handleIniciar} saldoAnterior={state.saldoAnterior || 0} onCancelar={prevStateRef.current ? handleCancelarNovoMes : handleVoltarParaOnboarding} />;
       case TELAS.painel:    return <TelaPainel state={state} flashId={flashId} flashType={flashType} onRegistrarGasto={() => setTela(TELAS.gasto)} onAdicionarExtra={() => setTela(TELAS.extra)} onHistorico={() => setTela(TELAS.historico)} onOpenMenu={() => setShowMenu(true)} onAnalise={() => setTela(TELAS.analise)} onEditar={item => handleEditar(item, TELAS.painel)} onAbrirMetaCompra={() => setTela(TELAS.comprar)} onRemoverMetaCompra={handleRemoverMetaCompra} onExcluir={handleExcluir} />;
       case TELAS.gasto:     return <TelaEntrada tipo="gasto"  onSalvar={v => handleEntrada('gasto', v)}  onVoltar={(tipo) => { if (tipo) triggerFlash(tipo); setTela(TELAS.painel); }} />;
       case TELAS.extra:     return <TelaEntrada tipo="extra"  onSalvar={v => handleEntrada('extra', v)}  onVoltar={(tipo) => { if (tipo) triggerFlash(tipo); setTela(TELAS.painel); }} />;
@@ -3058,7 +3063,7 @@ function App() {
   const showTabBar = ['painel', 'historico', 'analise', 'comprar'].includes(tela);
   const isMobile = window.innerWidth <= 500;
   const outerStyle = isMobile
-    ? { width: '100%', minHeight: '100dvh', display: 'flex', flexDirection: 'column', position: 'relative', fontFamily: T.font, background: T.bg, overflowX: 'hidden' }
+    ? { width: '100%', height: '100dvh', display: 'flex', flexDirection: 'column', position: 'relative', fontFamily: T.font, background: T.bg, overflowX: 'hidden' }
     : { width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', fontFamily: T.font, background: T.bg };
 
   const appContent = (
@@ -3074,7 +3079,7 @@ function App() {
               {showNovoMes && <DialogReiniciar onConfirmar={handleNovoMes} onCancelar={() => setShowNovoMes(false)} saldoRestante={calcStats(state).saldoTotalRestante} />}
               {showAjustar && <DialogAjustarOrcamento valorAtual={state.valorMensal} state={state} onConfirmar={handleAjustarOrcamento} onCancelar={() => setShowAjustar(false)} />}
               {showMenu && (
-                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 100 }} onClick={() => setShowMenu(false)}>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 100 }} onClick={() => setShowMenu(false)}>
                   <div className="pop-in" onClick={e => e.stopPropagation()} style={{ background: T.card, borderRadius: '20px 20px 0 0', padding: '6px 20px 32px', width: '100%' }}>
                     <div style={{ width: 36, height: 4, borderRadius: 100, background: T.sep, margin: '12px auto 20px' }} />
                     <div style={{ fontSize: 13, fontWeight: 700, color: T.textTer, textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 12 }}>Opções</div>
@@ -3109,7 +3114,7 @@ function App() {
                 />
               )}
               {showConfirmRecomecar && (
-                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 100 }}>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 100 }}>
                   <div className="pop-in" style={{ background: T.card, borderRadius: '20px 20px 0 0', padding: '6px 20px 32px', width: '100%' }}>
                     <div style={{ width: 36, height: 4, borderRadius: 100, background: T.sep, margin: '12px auto 20px' }} />
                     <div style={{ fontSize: 20, fontWeight: 800, color: T.text, marginBottom: 8 }}>Tem certeza?</div>
