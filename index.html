@@ -10,11 +10,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Hoje Dá" />
-<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="/icons/icon-192.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
-<link rel="icon" href="assets/brand/hoje-da-icon.svg" type="image/svg+xml" />
+<link rel="icon" href="/icons/icon-512.png" type="image/png" />
 <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
@@ -950,7 +950,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
       <div style={{ paddingBottom: 20, borderBottom: '1px solid rgba(15,23,42,0.07)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <img src="assets/brand/hoje-da-icon.svg" width="32" height="32" alt="" style={{ borderRadius: 8, flexShrink: 0 }} />
+            <img src="/icons/icon-512.png" width="32" height="32" alt="Hoje Dá" style={{ borderRadius: 8, flexShrink: 0 }} />
             <span style={{ fontSize: 26, fontWeight: 800, color: T.text, letterSpacing: -0.5 }}>Hoje Dá</span>
           </div>
           <button onClick={onOpenMenu} style={{
@@ -2720,7 +2720,7 @@ function OnboardingScreen({ onComecar }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           marginBottom: 10,
         }}>
-          <img src="assets/brand/hoje-da-icon.svg" width="72" height="72" alt="Hoje Dá" style={{ borderRadius: 18 }} />
+          <img src="/icons/icon-512.png" width="72" height="72" alt="Hoje Dá" style={{ borderRadius: 18 }} />
         </div>
         <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: -0.5, marginBottom: 3 }}>Hoje Dá</div>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>Clareza. Controle. Liberdade.</div>
@@ -3051,11 +3051,10 @@ function App() {
   };
 
   const showTabBar = ['painel', 'historico', 'analise', 'comprar'].includes(tela);
+  const isMobile = window.innerWidth <= 500;
 
-  return (
-    <div style={{ position: 'relative' }}>
-      <AndroidDevice width={390} height={844} dark={false}>
-        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', fontFamily: T.font, background: T.bg }}>
+  const appContent = (
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', fontFamily: T.font, background: T.bg }}>
           <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
             {!onboardingVisto ? (
               <OnboardingScreen onComecar={handleOnboardingVisto} />
@@ -3127,7 +3126,15 @@ function App() {
               )}
             </>
           )}
-        </div>
+    </div>
+  );
+
+  if (isMobile) return appContent;
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <AndroidDevice width={390} height={844} dark={false}>
+        {appContent}
       </AndroidDevice>
     </div>
   );
