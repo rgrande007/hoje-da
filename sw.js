@@ -21,7 +21,7 @@ const WB_MANIFEST = self.__WB_MANIFEST || [];
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
-      .then(c => c.addAll(PRECACHE))
+      .then(c => c.addAll([...PRECACHE, ...WB_MANIFEST.map(e => e.url)]))
       .then(() => self.skipWaiting())
   );
 });
