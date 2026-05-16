@@ -1708,18 +1708,6 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
                 meta: {fmt(stats.metaRecuperacaoDiaria)}/dia nos próximos {stats.diasRestantes} {stats.diasRestantes === 1 ? 'dia' : 'dias'}
               </div>
             )}
-            {!noTx && (
-              <button
-                onClick={() => setShowBreakdown(true)}
-                style={{
-                  background: 'none', border: 'none', padding: 0, marginTop: 5,
-                  cursor: 'pointer', fontSize: 12, fontWeight: 700,
-                  color: T.blue, fontFamily: T.font, display: 'block',
-                }}
-              >
-                Ver cálculo →
-              </button>
-            )}
           </div>
 
           {/* Barra de duas zonas (quota → buffer) */}
@@ -1748,16 +1736,33 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
                 <span style={{ fontSize: 11, color: T.textSec }}>
                   {noTx ? 'Registre seu primeiro gasto abaixo' : gastosHoje > 0 ? `Gastei ${fmt(gastosHoje)} hoje` : 'Nenhum gasto hoje'}
                 </span>
-                {buffZonePct > 4 && remainingPlanMargin > 0.5 && (
-                  <span style={{ fontSize: 11, fontWeight: 700, color: T.blue }}>+{fmt(remainingPlanMargin)} acumulados</span>
+                {!noTx && (
+                  <button onClick={() => setShowBreakdown(true)} style={{
+                    background: 'none', border: 'none', padding: 0,
+                    cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                    color: T.blue, fontFamily: T.font,
+                  }}>
+                    Ver cálculo →
+                  </button>
                 )}
               </div>
             </div>
           ) : (
             <div style={{ marginBottom: 14 }}>
               <div style={{ height: 10, borderRadius: 100, background: T.red, opacity: 0.75 }} />
-              <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, color: T.red }}>
-                {stats.diasRestantes > 0 ? `${stats.diasRestantes} dias restantes para recuperar` : 'Ciclo encerrado acima do plano'}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: T.red }}>
+                  {stats.diasRestantes > 0 ? `${stats.diasRestantes} dias restantes para recuperar` : 'Ciclo encerrado acima do plano'}
+                </span>
+                {!noTx && (
+                  <button onClick={() => setShowBreakdown(true)} style={{
+                    background: 'none', border: 'none', padding: 0,
+                    cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                    color: T.blue, fontFamily: T.font,
+                  }}>
+                    Ver cálculo →
+                  </button>
+                )}
               </div>
             </div>
           )}
