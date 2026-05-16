@@ -98,6 +98,16 @@ const fmtDate    = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit'
 const fmtDateKey = d => { const dt = new Date(d); return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`; };
 const fmtTime    = d => new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = React.useState(() => window.innerWidth <= 500);
+  React.useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 500);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return isMobile;
+}
+
 // ─── Storage ──────────────────────────────────────────────────────────────────
 const SK = 'orcamento_diario_v6';
 const SK_LEGACY = 'orcamento_diario_v5';
@@ -3075,7 +3085,7 @@ function App() {
   };
 
   const showTabBar = ['painel', 'historico', 'analise'].includes(tela);
-  const isMobile = window.innerWidth <= 500;
+  const isMobile = useIsMobile();
   const outerStyle = isMobile
     ? { width: '100%', height: '100dvh', display: 'flex', flexDirection: 'column', position: 'relative', fontFamily: T.font, background: T.bg, overflowX: 'hidden' }
     : { width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', fontFamily: T.font, background: T.bg };
