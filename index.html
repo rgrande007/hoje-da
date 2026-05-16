@@ -1397,7 +1397,7 @@ function CalculationBreakdownSheet({ dailyQuota, todaySpent, carryBeforeToday, a
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={{ fontSize: 18, fontWeight: 800, color: T.text }}>Como chegamos aqui</div>
-          <button onClick={handleClose} style={{
+          <button onClick={handleClose} aria-label="Fechar" style={{
             width: 32, height: 32, borderRadius: '50%',
             background: 'rgba(15,23,42,0.06)', border: 'none',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1580,7 +1580,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {/* Botão de configuração — canto esquerdo antes do logo */}
-            <button onClick={onConfig} style={{
+            <button onClick={onConfig} aria-label="Editar configuração do ciclo" style={{
               width: 28, height: 28, borderRadius: 8,
               background: T.blueLight, border: 'none',
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1591,7 +1591,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
             <img src="/icons/icon-512.png" width="28" height="28" alt="Hoje Dá" style={{ borderRadius: 7, flexShrink: 0 }} />
             <span style={{ fontSize: 22, fontWeight: 800, color: T.text, letterSpacing: -0.5 }}>Hoje Dá</span>
           </div>
-          <button onClick={onOpenMenu} style={{
+          <button onClick={onOpenMenu} aria-label="Abrir menu" style={{
             width: 38, height: 38, borderRadius: 12, cursor: 'pointer',
             background: T.card, border: T.border,
             boxShadow: '0 2px 6px rgba(15,23,42,0.05)',
@@ -1761,7 +1761,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
 
           {!noTx && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
-              <button onClick={() => setShowBreakdown(true)} style={{
+              <button onClick={() => setShowBreakdown(true)} aria-label="Ver como o valor disponível foi calculado" style={{
                 background: 'none', border: 'none', padding: '4px 0',
                 cursor: 'pointer', fontSize: 11, fontWeight: 700,
                 color: T.blue, fontFamily: T.font,
