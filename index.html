@@ -307,7 +307,6 @@ const IcoMinus   = ({c="#fff",s=20})    => <svg width={s} height={s} viewBox="0 
 const IcoHistory = ({c=T.blue,s=20})    => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke={c} strokeWidth="2"/><path d="M12 7v5l3 3" stroke={c} strokeWidth="2" strokeLinecap="round"/></svg>;
 const IcoTrash   = ({c=T.red,s=16})     => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 const IcoEdit    = ({c=T.blue,s=16})    => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
-const IcoRefresh = ({c="rgba(255,255,255,0.8)",s=16}) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M1 4v6h6" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 const IcoCheck   = ({c="#fff",s=18})    => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L19 7" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 const IcoChart   = ({c=T.blue,s=20})    => <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><rect x="3" y="13" width="4" height="8" rx="1" fill={c} opacity="0.5"/><rect x="10" y="8" width="4" height="13" rx="1" fill={c} opacity="0.75"/><rect x="17" y="4" width="4" height="17" rx="1" fill={c}/></svg>;
 const IcoDotsV   = ({c='#64748B',s=20}) => <svg width={s} height={s} viewBox="0 0 24 24" fill={c}><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>;
@@ -2129,7 +2128,7 @@ function TelaEntrada({ tipo, onSalvar, onVoltar, initialData = null, minDate = n
 
         {/* Botão confirmar */}
         <div style={{ padding: '16px' }}>
-          <button onClick={salvar} disabled={!valor || valor <= 0} style={{
+          <button onClick={salvar} disabled={saved || !valor || valor <= 0} style={{
             width: '100%', height: 60, borderRadius: 18, border: 'none',
             cursor: valor > 0 ? 'pointer' : 'default',
             background: saved ? T.green : ((!valor || valor <= 0) ? '#E2ECFF' : cor),
