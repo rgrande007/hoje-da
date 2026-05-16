@@ -1875,6 +1875,7 @@ function TelaHistorico({ transacoes, onExcluir, onEditar, onVoltar }) {
     if (!grupos[d]) grupos[d] = [];
     grupos[d].push(t);
   });
+  Object.values(grupos).forEach(items => items.sort((a, b) => b.data.localeCompare(a.data)));
 
   const totalGastos = transacoes.filter(t => t.tipo === 'gasto').reduce((s, t) => s + t.valor, 0);
   const totalEntradas = transacoes.filter(t => t.tipo === 'extra').reduce((s, t) => s + t.valor, 0);

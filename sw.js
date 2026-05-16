@@ -95,7 +95,7 @@ self.addEventListener('fetch', e => {
         const network = fetch(e.request).then(res => {
           if (res.ok) cache.put(e.request, res.clone());
           return res;
-        }).catch(() => cached);
+        }).catch(() => cached || new Response('Offline', { status: 503, statusText: 'Service Unavailable' }));
         return cached || network;
       })
     )
