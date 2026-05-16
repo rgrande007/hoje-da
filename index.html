@@ -1338,16 +1338,8 @@ function TelaFechamentoCiclo({ state, onNovoMes, onHistorico, onVoltar }) {
 // ═══════════════════════════════════════════════════════════════
 function CalculationBreakdownSheet({ dailyQuota, todaySpent, carryBeforeToday, availableNow, onClose }) {
   const [visible, setVisible] = React.useState(false);
-
-  React.useEffect(() => {
-    const t = setTimeout(() => setVisible(true), 10);
-    return () => clearTimeout(t);
-  }, []);
-
-  const handleClose = () => {
-    setVisible(false);
-    setTimeout(onClose, 350);
-  };
+  React.useEffect(() => { const t = setTimeout(() => setVisible(true), 10); return () => clearTimeout(t); }, []);
+  const handleClose = () => { setVisible(false); setTimeout(onClose, 350); };
 
   const todayOverflow   = Math.max(0, todaySpent - dailyQuota);
   const usedPlanBuffer  = Math.min(carryBeforeToday, todayOverflow);
@@ -1371,9 +1363,7 @@ function CalculationBreakdownSheet({ dailyQuota, todaySpent, carryBeforeToday, a
       background: bg, border: `1.5px solid ${border}`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       flexShrink: 0, fontSize: 16,
-    }}>
-      {emoji}
-    </div>
+    }}>{emoji}</div>
   );
 
   const CalcRow = ({ icon, title, subtitle, value, valueColor }) => (
@@ -1387,60 +1377,104 @@ function CalculationBreakdownSheet({ dailyQuota, todaySpent, carryBeforeToday, a
         <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>{title}</div>
         {subtitle && <div style={{ fontSize: 12, color: T.textSec, marginTop: 1 }}>{subtitle}</div>}
       </div>
-      <div style={{ fontSize: 15, fontWeight: 700, color: valueColor || T.text, flexShrink: 0 }}>
-        {value}
-      </div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: valueColor || T.text, flexShrink: 0 }}>{value}</div>
     </div>
   );
 
   return (
-    <div
-      onClick={handleClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
-        background: visible ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0)',
-        transition: 'background 0.25s',
-      }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          position: 'fixed', bottom: 0, left: 0, right: 0,
-          background: '#fff',
-          borderRadius: '24px 24px 0 0',
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          padding: '0 20px 40px',
-          transform: visible ? 'translateY(0)' : 'translateY(100%)',
-          transition: 'transform 0.35s cubic-bezier(.2,.8,.3,1)',
-          fontFamily: T.font,
-        }}
-      >
+    <div onClick={handleClose} style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: visible ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0)',
+      transition: 'background 0.25s',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0,
+        background: '#fff', borderRadius: '24px 24px 0 0',
+        maxHeight: '90vh', overflowY: 'auto', padding: '0 20px 40px',
+        transform: visible ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform 0.35s cubic-bezier(.2,.8,.3,1)',
+        fontFamily: T.font,
+      }}>
+
         {/* Handle */}
         <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 12, paddingBottom: 8 }}>
           <div style={{ width: 36, height: 4, borderRadius: 99, background: 'rgba(15,23,42,0.12)' }} />
         </div>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingBottom: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={{ fontSize: 18, fontWeight: 800, color: T.text }}>Como chegamos aqui</div>
-          <button
-            onClick={handleClose}
-            style={{
-              width: 32, height: 32, borderRadius: '50%',
-              background: 'rgba(15,23,42,0.06)', border: 'none',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: T.font, flexShrink: 0,
-            }}
-          >
+          <button onClick={handleClose} style={{
+            width: 32, height: 32, borderRadius: '50%',
+            background: 'rgba(15,23,42,0.06)', border: 'none',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: T.font, flexShrink: 0,
+          }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M1 1l12 12M13 1L1 13" stroke={T.text} strokeWidth="2" strokeLinecap="round"/>
             </svg>
           </button>
         </div>
 
-        {/* Linhas de cálculo */}
-        <div style={{ marginBottom: 16 }}>
+        {/* RESULTADO — hero no topo, conclusão antes da prova */}
+        <div style={{
+          borderRadius: 16, padding: '16px',
+          background: resultPositive ? T.greenLight : T.redLight,
+          border: `1px solid ${resultPositive ? 'rgba(49,164,108,0.2)' : 'rgba(227,93,106,0.2)'}`,
+          display: 'flex', alignItems: 'center', gap: 12,
+          marginBottom: 14,
+        }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: '50%',
+            background: resultPositive ? T.green : T.red,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            {resultPositive
+              ? <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l4 4 7-8" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              : <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v6M8 11.5v1" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"/></svg>
+            }
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: resultPositive ? '#3D8A60' : '#9B4A55' }}>{resultTitle}</div>
+            <div style={{ fontSize: 12, color: resultPositive ? '#3D8A60' : '#9B4A55', marginTop: 1, opacity: 0.85, lineHeight: '16px' }}>{resultSubtitle}</div>
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: resultPositive ? T.green : T.red, flexShrink: 0 }}>{fmt(resultValue)}</div>
+        </div>
+
+        {/* EQUAÇÃO — orienta o usuário antes do detalhe */}
+        {!withinQuota && hasCarry && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            padding: '10px 16px', marginBottom: 12,
+            background: '#F8FAFC', borderRadius: 12,
+            border: '1px solid rgba(15,23,42,0.06)',
+          }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: T.green }}>+{fmt(carryBeforeToday)}</span>
+            <span style={{ fontSize: 14, color: T.textSec, fontWeight: 600 }}>−</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: T.red }}>{fmt(usedPlanBuffer)}</span>
+            <span style={{ fontSize: 14, color: T.textSec, fontWeight: 600 }}>=</span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: resultPositive ? T.green : T.red }}>
+              {isNegative ? `−${fmt(Math.abs(availableNow))}` : fmt(remainingBuffer)}
+            </span>
+          </div>
+        )}
+
+        {/* CONTEXTO — sobe para acima das linhas, só quando excedeu */}
+        {!withinQuota && (
+          <div style={{
+            borderRadius: 12, padding: '10px 14px', marginBottom: 4,
+            background: T.blueLight, border: '1px solid rgba(47,111,237,0.15)',
+            display: 'flex', alignItems: 'flex-start', gap: 8,
+          }}>
+            <span style={{ fontSize: 12, color: T.blue, fontWeight: 800, flexShrink: 0, marginTop: 1 }}>i</span>
+            <div style={{ fontSize: 12, color: '#3B5EA6', lineHeight: '17px' }}>
+              Você gastou mais do que o valor de hoje, então usamos sua folga acumulada para manter o plano equilibrado.
+            </div>
+          </div>
+        )}
+
+        {/* LINHAS DE CÁLCULO — prova da conta */}
+        <div style={{ marginBottom: 8 }}>
 
           {/* 1. Valor de hoje */}
           <CalcRow
@@ -1457,89 +1491,48 @@ function CalculationBreakdownSheet({ dailyQuota, todaySpent, carryBeforeToday, a
             value={fmt(todaySpent)}
           />
 
-          {/* 3. Passou do valor — só quando excedeu */}
+          {/* 3. Quanto passou — só quando excedeu */}
           {!withinQuota && (
             <CalcRow
               icon={<IconCircle bg={T.redLight} border={T.red} emoji="⬆️" />}
-              title="Passou do valor de hoje"
-              subtitle="Excesso sobre o valor de hoje"
+              title="Quanto você passou hoje"
               value={fmt(todayOverflow)}
               valueColor={T.red}
             />
           )}
 
-          {/* 4. Folga que tinha — só quando excedeu e há carry */}
+          {/* 4. Folga acumulada — só quando excedeu e há carry */}
           {!withinQuota && hasCarry && (
             <CalcRow
               icon={<IconCircle bg={T.greenLight} border={T.green} emoji="✨" />}
-              title="Folga que você tinha"
-              subtitle="Antes de gastar hoje"
+              title="Folga acumulada"
+              subtitle="Dos dias anteriores"
               value={`+ ${fmt(carryBeforeToday)}`}
               valueColor={T.green}
             />
           )}
 
-          {/* 5. Folga usada hoje — só quando excedeu e há carry */}
+          {/* Conector — torna a causalidade explícita */}
+          {!withinQuota && hasCarry && (
+            <div style={{
+              textAlign: 'center', fontSize: 11, color: T.textSec,
+              paddingTop: 4, paddingBottom: 4, fontWeight: 500,
+            }}>
+              usamos parte dela:
+            </div>
+          )}
+
+          {/* 5. Quanto foi usado da folga — só quando excedeu e há carry */}
           {!withinQuota && hasCarry && (
             <CalcRow
               icon={<IconCircle bg="#FFF3E0" border="#F97316" emoji="🔄" />}
-              title="Folga usada hoje"
-              subtitle="Para cobrir o excesso de hoje"
-              value={`- ${fmt(usedPlanBuffer)}`}
+              title="Quanto foi usado da folga"
+              subtitle="Para cobrir o que passou"
+              value={`− ${fmt(usedPlanBuffer)}`}
               valueColor={T.red}
             />
           )}
 
-        </div>
-
-        {/* Bloco resultado */}
-        <div style={{
-          borderRadius: 16, padding: '16px',
-          background: resultPositive ? T.greenLight : T.redLight,
-          border: `1px solid ${resultPositive ? 'rgba(49,164,108,0.2)' : 'rgba(227,93,106,0.2)'}`,
-          display: 'flex', alignItems: 'center', gap: 12,
-          marginBottom: 12,
-        }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: '50%',
-            background: resultPositive ? T.green : T.red,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
-          }}>
-            {resultPositive
-              ? <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2.5 8.5l4 4 7-8" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              : <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v6M8 11.5v1" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"/></svg>
-            }
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: resultPositive ? '#3D8A60' : '#9B4A55' }}>{resultTitle}</div>
-            <div style={{ fontSize: 12, color: resultPositive ? '#3D8A60' : '#9B4A55', marginTop: 1, opacity: 0.85, lineHeight: '16px' }}>{resultSubtitle}</div>
-          </div>
-          <div style={{ fontSize: 17, fontWeight: 800, color: resultPositive ? T.green : T.red, flexShrink: 0 }}>
-            {fmt(resultValue)}
-          </div>
-        </div>
-
-        {/* Bloco "Entenda o cálculo" */}
-        <div style={{
-          borderRadius: 16, padding: '14px 16px',
-          background: T.blueLight,
-          border: '1px solid rgba(47,111,237,0.15)',
-          display: 'flex', gap: 10,
-        }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: '50%',
-            background: T.blue, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0, marginTop: 1,
-          }}>
-            <span style={{ fontSize: 13, color: '#fff', fontWeight: 800, lineHeight: 1 }}>i</span>
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: T.blue, marginBottom: 4 }}>Entenda o cálculo</div>
-            <div style={{ fontSize: 12, color: '#3B5EA6', lineHeight: '18px' }}>
-              Quando você gasta acima do valor de hoje, usamos sua folga do plano para manter tudo sob controle. Por isso, o valor disponível pode mudar durante o período.
-            </div>
-          </div>
         </div>
 
       </div>
