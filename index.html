@@ -1128,7 +1128,7 @@ function MiniDonutChart({ pct, color, size = 88 }) {
 // TELA — Fechamento de ciclo (visual)
 // ═══════════════════════════════════════════════════════════════
 function TelaFechamentoCiclo({ state, onNovoMes, onHistorico, onVoltar }) {
-  const stats = calcStats(state);
+  const stats = React.useMemo(() => calcStats(state), [state]);
   const economizado = stats.saldoTotalRestante;
   const positivo = economizado >= 0;
   const pct = state.valorMensal > 0 ? Math.min(stats.totalGastos / state.valorMensal, 1) : 1;
@@ -1270,7 +1270,7 @@ function TelaFechamentoCiclo({ state, onNovoMes, onHistorico, onVoltar }) {
 // TELA 2 — Painel principal  (v4 — hierarquia reestruturada)
 // ═══════════════════════════════════════════════════════════════
 function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarExtra, onHistorico, onOpenMenu, onAnalise, onEditar, onExcluir, onConfig, onFechamento }) {
-  const stats = calcStats(state);
+  const stats = React.useMemo(() => calcStats(state), [state]);
   const hoje = new Date();
   const dataHoje = hoje.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
   const dataHojeDisplay = (dataHoje.charAt(0).toUpperCase() + dataHoje.slice(1)).replace('.,', ',').replace(/\.(\s|$)/, '$1');
@@ -2065,7 +2065,7 @@ function TelaHistorico({ transacoes, onExcluir, onEditar, onVoltar }) {
 // TELA 6 — Análise (gráfico de evolução + calendário 7 dias)
 // ═══════════════════════════════════════════════════════════════
 function TelaAnalise({ state, onVoltar }) {
-  const stats = calcStats(state);
+  const stats = React.useMemo(() => calcStats(state), [state]);
   const hoje = new Date();
   const inicioDate = new Date(state.dataInicio);
 
@@ -2468,6 +2468,7 @@ function DialogAjustarOrcamento({ valorAtual, state, onConfirmar, onCancelar }) 
   );
   const [isFocused, setIsFocused] = React.useState(false);
   const inputRef = React.useRef(null);
+  const stats = React.useMemo(() => calcStats(state), [state]);
 
   function handleFocus() {
     setIsFocused(true);
@@ -2538,7 +2539,6 @@ function DialogAjustarOrcamento({ valorAtual, state, onConfirmar, onCancelar }) 
         </div>
         {/* Preview de impacto */}
         {podeConfirmar && (() => {
-          const stats = calcStats(state);
           const novaBase = stats.diasRestantes > 0 ? novoValor / state.diasDoMes : 0;
           const baseAtual = stats.valorDiarioBase;
           const diff = novaBase - baseAtual;
