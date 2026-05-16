@@ -2447,7 +2447,13 @@ function DialogAjustarOrcamento({ valorAtual, state, onConfirmar, onCancelar }) 
     const raw = (inputRef.current?.value || '').replace(/\./g, '').replace(',', '.');
     setNovoValor(parseFloat(raw) || 0);
   }
-  function handleChange(e) { setInputText(e.target.value.replace(/[^0-9,.]/g, '')); }
+  function handleChange(e) {
+    const text = e.target.value.replace(/[^0-9,.]/g, '');
+    setInputText(text);
+    const raw = text.replace(/\./g, '').replace(',', '.');
+    const v = parseFloat(raw);
+    if (!isNaN(v) && v >= 0) setNovoValor(v);
+  }
 
   const displayValue = isFocused
     ? inputText
