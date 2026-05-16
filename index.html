@@ -277,7 +277,7 @@ function getStatusDiario(stats, { gastosHoje = 0, ratioMargem = 0 } = {}) {
   }
 
   // Estado 3 — ciclo ok, dentro da cota do dia
-  if (ratioMargem < 0.5) {
+  if (ratioMargem < 0.25) {
     return {
       titulo: 'Hoje está apertado 👀',
       frase: 'Ainda tem margem, mas é melhor gastar pouco para não pressionar os próximos dias.',
@@ -1555,8 +1555,17 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
   const cardBorder = T.border;
   const cardColor  = isPositive ? T.green : T.red;
   const cardSub    = isPositive ? '#3D8A60' : '#9B4A55';
-  const statusLabel = ratioMargem < -1 ? 'Passou muito' : ratioMargem < 0 ? 'Passou' : ratioMargem < 0.5 ? 'Apertado' : ratioMargem < 1.5 ? 'No plano' : 'Com folga';
-  const statusColor = ratioMargem < 0 ? T.red : ratioMargem < 0.5 ? T.yellow : ratioMargem < 1.5 ? T.blue : T.green;
+  const statusObj = getStatusDiario(stats, { gastosHoje, ratioMargem });
+  const PILL_LABELS = {
+    'Ciclo acima do planejado': 'Passou',
+    'Saiu do plano': 'Passou',
+    'Passou da cota hoje 👀': 'Acima da cota',
+    'Hoje está apertado 👀': 'Apertado',
+    'Você está no plano ✅': 'No plano',
+    'Você está com folga 🌿': 'Com folga',
+  };
+  const statusLabel = PILL_LABELS[statusObj.titulo] || 'No plano';
+  const statusColor = { vermelho: T.red, amarelo: T.yellow, azul: T.blue, verde: T.green }[statusObj.nivel] || T.blue;
 
   const pct          = Math.min(orcamentoUsadoPct, 100);
   const restantePct  = Math.max(0, 100 - pct);
@@ -1675,7 +1684,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
           {/* Hero: disponível hoje */}
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: T.textTer, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 2 }}>
-              {isNeg ? 'saiu do plano em' : 'disponível hoje'}
+              {isNeg ? 'saiu do plano em' : noTx ? 'sua cota de hoje' : 'disponível hoje'}
             </div>
             <div key={flashId} className={flashType ? 'num-pop' : undefined}
               style={{ fontSize: 48, fontWeight: 800, color: noTx ? '#0F172A' : heroColor, lineHeight: '54px', letterSpacing: -1.5, transition: 'color 0.3s' }}>
@@ -1683,18 +1692,8 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
             </div>
 
             {/* Microcopy contextual */}
-            <div style={{ fontSize: 13, fontWeight: 500, color: isNeg ? T.red : ratioMargem < 0.5 ? T.yellow : ratioMargem >= 1.5 ? T.green : T.textSec, marginTop: 4 }}>
-              {noTx
-                ? '✏️ Registre seu primeiro gasto do dia'
-                : isNeg
-                ? ratioMargem < -1 ? '😬 Bem acima do planejado — foco total nos próximos dias' : '💪 Passou hoje — recupera nos próximos dias'
-                : ratioMargem < 0.5
-                ? '👀 Quase no limite, vai com calma'
-                : gastosHoje === 0
-                ? '👋 Nenhum gasto registrado ainda'
-                : ratioMargem >= 1.5
-                ? '🌟 Você está com folga hoje'
-                : '🙌 No ritmo certo'}
+            <div style={{ fontSize: 13, fontWeight: 500, color: statusColor === T.blue ? T.textSec : statusColor, marginTop: 4 }}>
+              {noTx ? '✏️ Registre seu primeiro gasto do dia' : statusObj.frase}
             </div>
 
             {isNeg && stats.metaRecuperacaoDiaria != null && stats.metaRecuperacaoDiaria > 0 && (
