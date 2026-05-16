@@ -480,7 +480,7 @@ function MoneyInput({ value, onChange, wrapperStyle = {}, valueStyle = {} }) {
 }
 
 // ─── DateSpinner — seletor de data com segmentos dia / mês / ano ─────────────
-function DateSpinner({ label, value, onChange, minValue }) {
+function DateSpinner({ label, value, onChange, minValue, maxValue }) {
   const d = new Date(value + 'T12:00:00');
   const day   = d.getDate();
   const month = d.getMonth();
@@ -493,6 +493,12 @@ function DateSpinner({ label, value, onChange, minValue }) {
     const safe = Math.min(nd, daysIn(nm, ny));
     const str  = `${ny}-${String(nm+1).padStart(2,'0')}-${String(safe).padStart(2,'0')}`;
     if (minValue && str < minValue) {
+      haptic('error');
+      setBlocked(true);
+      setTimeout(() => setBlocked(false), 420);
+      return;
+    }
+    if (maxValue && str > maxValue) {
       haptic('error');
       setBlocked(true);
       setTimeout(() => setBlocked(false), 420);
@@ -1770,36 +1776,20 @@ function TelaEntrada({ tipo, onSalvar, onVoltar, initialData = null, minDate = n
 
         {/* Data do lançamento */}
         <div style={{ padding: '8px 16px 0' }}>
-          <div style={{
-            background: T.card, borderRadius: T.r14, padding: '0 16px',
-            display: 'flex', alignItems: 'center', gap: 10,
-            border: `1px solid ${isRetroativo ? T.blue : 'rgba(15,23,42,0.06)'}`,
-            transition: 'border-color 0.2s',
-          }}>
-            <span style={{ fontSize: 16, flexShrink: 0 }}>📅</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 10, color: T.textTer, fontWeight: 600, paddingTop: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Data do lançamento
-              </div>
-              <input
-                type="date"
-                value={dataLancamento}
-                min={minDate || undefined}
-                max={todayStr}
-                onChange={e => setDataLancamento(e.target.value)}
-                style={{
-                  border: 'none', outline: 'none', fontSize: 14, color: T.text,
-                  fontFamily: T.font, fontWeight: 500, paddingBottom: 10,
-                  background: 'transparent', width: '100%',
-                }}
-              />
-            </div>
-            {isRetroativo && (
-              <span style={{ fontSize: 11, color: T.blue, fontWeight: 700, flexShrink: 0, background: T.blueLight, padding: '3px 8px', borderRadius: 8 }}>
+          <DateSpinner
+            label="Data do lançamento"
+            value={dataLancamento}
+            onChange={setDataLancamento}
+            minValue={minDate || undefined}
+            maxValue={todayStr}
+          />
+          {isRetroativo && (
+            <div style={{ textAlign: 'center', marginTop: 6 }}>
+              <span style={{ fontSize: 11, color: T.blue, fontWeight: 700, background: T.blueLight, padding: '3px 8px', borderRadius: 8 }}>
                 Retroativo
               </span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <div style={{ flex: 1 }} />
