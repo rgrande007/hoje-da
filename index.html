@@ -1831,7 +1831,7 @@ function TelaHistorico({ transacoes, onExcluir, onEditar, onVoltar }) {
   })();
 
   const grupos = {};
-  [...transacoesFiltradas].reverse().forEach(t => {
+  transacoesFiltradas.forEach(t => {
     const d = fmtDateKey(t.data);
     if (!grupos[d]) grupos[d] = [];
     grupos[d].push(t);
@@ -1927,7 +1927,7 @@ function TelaHistorico({ transacoes, onExcluir, onEditar, onVoltar }) {
         </div>
       )}
 
-      {Object.entries(grupos).map(([key, items]) => (
+      {Object.entries(grupos).sort(([a], [b]) => b.localeCompare(a)).map(([key, items]) => (
         <div key={key} style={{ padding: '14px 16px 0' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: T.textTer, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>{fmtDate(items[0].data)}</div>
           <Card>
