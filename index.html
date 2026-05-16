@@ -1668,7 +1668,7 @@ function TelaEntrada({ tipo, onSalvar, onVoltar, initialData = null, minDate = n
     !isGasto ? (initialData?.categoria || localStorage.getItem(SK_LAST_INCOME_CAT) || 'salario') : 'salario'
   );
   const [saved, setSaved]       = React.useState(false);
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = fmtDateKey(new Date().toISOString());
   const [dataLancamento, setDataLancamento] = React.useState(
     initialData?.data ? initialData.data.split('T')[0] : todayStr
   );
