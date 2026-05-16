@@ -983,7 +983,7 @@ function SpendingGauge({ ratioMargem, flashColor }) {
     { label: 'No plano',  color: '#2F6FED' },
     { label: 'Com folga', color: '#31A46C' },
   ];
-  const si = ratioMargem < 0 ? 0 : ratioMargem < 0.5 ? 1 : ratioMargem < 1.5 ? 2 : 3;
+  const si = ratioMargem < 0 ? 0 : ratioMargem < 0.25 ? 1 : ratioMargem < 1.5 ? 2 : 3;
 
   return (
     <div style={{ marginTop: 20 }}>
@@ -1570,7 +1570,6 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
   const pct          = Math.min(orcamentoUsadoPct, 100);
   const restantePct  = Math.max(0, 100 - pct);
   const donutColor   = restantePct > 40 ? T.green : restantePct > 15 ? T.yellow : T.red;
-  const mainNumColor = ratioMargem < 0 ? T.red : ratioMargem < 0.5 ? T.yellow : '#0F172A';
   const flashColor   = flashType === 'gasto' ? T.red : flashType === 'extra' ? T.green : null;
 
   return (
