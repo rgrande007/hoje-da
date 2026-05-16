@@ -16,6 +16,8 @@ const CDN_URLS = [
   'https://unpkg.com/@babel/standalone@7.29.0/babel.min.js',
 ];
 
+const WB_MANIFEST = self.__WB_MANIFEST || [];
+
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)

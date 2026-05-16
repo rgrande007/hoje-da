@@ -58,13 +58,6 @@
 </style>
 </head>
 <body>
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function() {
-      navigator.serviceWorker.register('/sw.js').catch(function() {});
-    });
-  }
-</script>
 <script type="text/babel">
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -1336,7 +1329,7 @@ function TelaFechamentoCiclo({ state, onNovoMes, onHistorico, onVoltar }) {
 // ═══════════════════════════════════════════════════════════════
 // CalculationBreakdownSheet — Bottom sheet "Como chegamos aqui"
 // ═══════════════════════════════════════════════════════════════
-function CalculationBreakdownSheet({ dailyQuota, todaySpent, carryBeforeToday, availableNow, onClose }) {
+function CalculationBreakdownSheet({ dailyQuota, todaySpent, carryBeforeToday, availableNow, totalEntradas = 0, onClose }) {
   const [visible, setVisible] = React.useState(false);
   React.useEffect(() => { const t = setTimeout(() => setVisible(true), 10); return () => clearTimeout(t); }, []);
   const handleClose = () => { setVisible(false); setTimeout(onClose, 350); };
@@ -1506,7 +1499,7 @@ function CalculationBreakdownSheet({ dailyQuota, todaySpent, carryBeforeToday, a
             <CalcRow
               icon={<IconCircle bg={T.greenLight} border={T.green} emoji="✨" />}
               title="Folga acumulada"
-              subtitle="Dos dias anteriores"
+              subtitle={totalEntradas > 0 ? 'Dias anteriores + entradas' : 'Dos dias anteriores'}
               value={`+ ${fmt(carryBeforeToday)}`}
               valueColor={T.green}
             />
@@ -1554,7 +1547,6 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
   const orcamentoUsadoPct = state.valorMensal > 0 ? (stats.totalGastos / (state.valorMensal + stats.totalEntradas)) * 100 : 0;
   const hojeKey = fmtDateKey(new Date().toISOString());
   const gastosHoje = state.transacoes.filter(t => t && t.tipo === 'gasto' && fmtDateKey(t.data) === hojeKey).reduce((s, t) => s + t.valor, 0);
-  const status = getStatusDiario(stats, { gastosHoje, ratioMargem });
   const isPositive = margemAteHoje >= 0;
   const [showBreakdown, setShowBreakdown] = React.useState(false);
   const accBufferStart = Math.max(0, margemAteHoje + gastosHoje - stats.valorDiarioBase);
@@ -1563,7 +1555,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
   const cardBorder = T.border;
   const cardColor  = isPositive ? T.green : T.red;
   const cardSub    = isPositive ? '#3D8A60' : '#9B4A55';
-  const statusLabel = ratioMargem < 0 ? 'Passou' : ratioMargem < 0.5 ? 'Apertado' : ratioMargem < 1.5 ? 'No plano' : 'Com folga';
+  const statusLabel = ratioMargem < -1 ? 'Passou muito' : ratioMargem < 0 ? 'Passou' : ratioMargem < 0.5 ? 'Apertado' : ratioMargem < 1.5 ? 'No plano' : 'Com folga';
   const statusColor = ratioMargem < 0 ? T.red : ratioMargem < 0.5 ? T.yellow : ratioMargem < 1.5 ? T.blue : T.green;
 
   const pct          = Math.min(orcamentoUsadoPct, 100);
@@ -1644,16 +1636,18 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
         // Margem que sobra depois de descontar o excesso de hoje
         const todayOverflow       = Math.max(0, gastosHoje - base);
         const remainingPlanMargin = Math.max(0, accBufferStart - todayOverflow);
-
-        // Proporções da barra de duas zonas
         const quotaZonePct = totalCapacity > 0 ? (base / totalCapacity) * 100 : 100;
         const buffZonePct  = 100 - quotaZonePct;
         const spendPct     = totalCapacity > 0 ? Math.min((gastosHoje / totalCapacity) * 100, 100) : 0;
-        const spendRatio   = base > 0 ? gastosHoje / base : 0;
-        const fillColor    = spendRatio >= 1 ? T.red : spendRatio >= 0.8 ? T.yellow : T.green;
 
-        // Hero color
-        const heroColor = isNeg ? T.red : avail < base * 0.25 ? T.yellow : '#0F172A';
+        // heroColor = statusColor (alinha hero, barra e gauge no mesmo código de cores)
+        const heroColor = statusColor;
+
+        // Breakdown do buffer: separar poupança de dias anteriores vs entradas extras
+        const gastosAnteriores   = stats.totalGastos - gastosHoje;
+        const quotaAcumAnterior  = base * Math.max(0, stats.diaAtual - 1);
+        const poupado            = Math.max(0, quotaAcumAnterior - gastosAnteriores);
+        const extrasTotal        = stats.totalEntradas;
 
         return (
         <div style={{
@@ -1678,84 +1672,86 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
             </span>
           </div>
 
-          {/* Hero: disponível agora */}
-          <div style={{ marginBottom: 16 }}>
+          {/* Hero: disponível hoje */}
+          <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: T.textTer, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 2 }}>
-              {noTx ? 'cota de hoje' : isNeg ? 'saiu do plano em' : 'disponível agora'}
+              {isNeg ? 'saiu do plano em' : 'disponível hoje'}
             </div>
             <div key={flashId} className={flashType ? 'num-pop' : undefined}
               style={{ fontSize: 48, fontWeight: 800, color: noTx ? '#0F172A' : heroColor, lineHeight: '54px', letterSpacing: -1.5, transition: 'color 0.3s' }}>
               {noTx ? fmt(base) : isNeg ? fmt(Math.abs(avail)) : fmt(avail)}
             </div>
 
-            {/* Linha de breakdown — só com transações */}
-            {!noTx && !isNeg && (
-              <div style={{ fontSize: 12, color: T.textSec, marginTop: 3, lineHeight: 1.4 }}>
-                {accBufferStart > 1
-                  ? `${fmt(Math.max(0, base - gastosHoje))} da cota de hoje · +${fmt(remainingPlanMargin)} acumulados`
-                  : `dentro da cota de hoje (${fmt(base)})`}
-              </div>
-            )}
-            {!noTx && isNeg && stats.metaRecuperacaoDiaria != null && stats.metaRecuperacaoDiaria > 0 && (
+            {/* Microcopy contextual */}
+            <div style={{ fontSize: 13, fontWeight: 500, color: isNeg ? T.red : ratioMargem < 0.5 ? T.yellow : ratioMargem >= 1.5 ? T.green : T.textSec, marginTop: 4 }}>
+              {noTx
+                ? '✏️ Registre seu primeiro gasto do dia'
+                : isNeg
+                ? ratioMargem < -1 ? '😬 Bem acima do planejado — foco total nos próximos dias' : '💪 Passou hoje — recupera nos próximos dias'
+                : ratioMargem < 0.5
+                ? '👀 Quase no limite, vai com calma'
+                : gastosHoje === 0
+                ? '👋 Nenhum gasto registrado ainda'
+                : ratioMargem >= 1.5
+                ? '🌟 Você está com folga hoje'
+                : '🙌 No ritmo certo'}
+            </div>
+
+            {isNeg && stats.metaRecuperacaoDiaria != null && stats.metaRecuperacaoDiaria > 0 && (
               <div style={{ fontSize: 12, color: T.red, marginTop: 3 }}>
                 meta: {fmt(stats.metaRecuperacaoDiaria)}/dia nos próximos {stats.diasRestantes} {stats.diasRestantes === 1 ? 'dia' : 'dias'}
               </div>
             )}
           </div>
 
-          {/* Barra de duas zonas (quota → buffer) */}
+          {/* Barra de duas zonas proporcionais (cota → acumulado) */}
           {!isNeg ? (
             <div style={{ marginBottom: 14 }}>
-              <div style={{ position: 'relative', height: 10, borderRadius: 100, overflow: 'hidden', background: '#E2E8F0' }}>
-                {/* Zona 2: buffer acumulado (fundo azul claro) */}
+              {/* Barra estilo bateria — fundo cinza (cota mais claro, acumulado mais escuro) + fill na cor do status */}
+              <div style={{ position: 'relative', height: 14, borderRadius: 999, overflow: 'hidden', background: '#E2E8F0' }}>
                 {buffZonePct > 2 && (
-                  <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${buffZonePct}%`, background: T.blueLight }} />
+                  <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${buffZonePct}%`, background: '#CBD5E1' }} />
                 )}
-                {/* Fill de gasto (da esquerda para direita, atravessa as zonas) */}
                 {gastosHoje > 0 && (
                   <div style={{
                     position: 'absolute', left: 0, top: 0, bottom: 0,
-                    width: `${spendPct}%`, background: fillColor, borderRadius: 100,
+                    width: `${spendPct}%`, background: heroColor, borderRadius: 999,
                     transition: 'width 0.5s cubic-bezier(.2,.8,.3,1), background 0.3s',
                   }} />
                 )}
-                {/* Divisor branco entre zonas */}
                 {buffZonePct > 4 && (
-                  <div style={{ position: 'absolute', left: `${quotaZonePct}%`, top: 0, bottom: 0, width: 2, background: '#fff', transform: 'translateX(-50%)', zIndex: 2 }} />
+                  <div style={{ position: 'absolute', left: `${quotaZonePct}%`, top: 0, bottom: 0, width: 2, background: 'rgba(255,255,255,0.85)', transform: 'translateX(-50%)', zIndex: 2 }} />
                 )}
               </div>
-              {/* Labels abaixo da barra */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                <span style={{ fontSize: 11, color: T.textSec }}>
-                  {noTx ? 'Registre seu primeiro gasto abaixo' : gastosHoje > 0 ? `Gastei ${fmt(gastosHoje)} hoje` : 'Nenhum gasto hoje'}
-                </span>
-                {!noTx && (
-                  <button onClick={() => setShowBreakdown(true)} style={{
-                    background: 'none', border: 'none', padding: 0,
-                    cursor: 'pointer', fontSize: 11, fontWeight: 700,
-                    color: T.blue, fontFamily: T.font,
-                  }}>
-                    Ver cálculo →
-                  </button>
-                )}
+
+              {/* Texto de apoio abaixo da barra */}
+              <div style={{ fontSize: 11, color: T.textSec, marginTop: 7, lineHeight: 1.4 }}>
+                {noTx
+                  ? `Cota de hoje: ${fmt(base)}`
+                  : accBufferStart > 1
+                  ? (() => {
+                      const quotaLeft = Math.max(0, base - gastosHoje);
+                      const bufferLabel = extrasTotal > 1 && poupado > 1
+                        ? 'poupado e entradas'
+                        : extrasTotal > 1
+                        ? 'de entradas extras'
+                        : 'de dias anteriores';
+                      if (quotaLeft > 0) {
+                        return <>{fmt(quotaLeft)} <span style={{ opacity: 0.6 }}>da cota</span> · {fmt(accBufferStart)} <span style={{ opacity: 0.6 }}>{bufferLabel}</span></>;
+                      }
+                      return <>{fmt(accBufferStart)} <span style={{ opacity: 0.6 }}>{bufferLabel}</span></>;
+                    })()
+                  : gastosHoje > 0
+                  ? <>{fmt(Math.max(0, base - gastosHoje))} <span style={{ opacity: 0.6 }}>restam da cota de hoje</span></>
+                  : null
+                }
               </div>
             </div>
           ) : (
             <div style={{ marginBottom: 14 }}>
-              <div style={{ height: 10, borderRadius: 100, background: T.red, opacity: 0.75 }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: T.red }}>
-                  {stats.diasRestantes > 0 ? `${stats.diasRestantes} dias restantes para recuperar` : 'Ciclo encerrado acima do plano'}
-                </span>
-                {!noTx && (
-                  <button onClick={() => setShowBreakdown(true)} style={{
-                    background: 'none', border: 'none', padding: 0,
-                    cursor: 'pointer', fontSize: 11, fontWeight: 700,
-                    color: T.blue, fontFamily: T.font,
-                  }}>
-                    Ver cálculo →
-                  </button>
-                )}
+              <div style={{ height: 14, borderRadius: 999, background: T.red, opacity: 0.75 }} />
+              <div style={{ fontSize: 11, fontWeight: 600, color: T.red, marginTop: 6 }}>
+                {stats.diasRestantes > 0 ? `${stats.diasRestantes} dias restantes para recuperar` : 'Ciclo encerrado acima do plano'}
               </div>
             </div>
           )}
@@ -1763,17 +1759,19 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
           {/* Divisor */}
           <div style={{ height: 1, background: 'rgba(15,23,42,0.06)', marginBottom: 14 }} />
 
-          {/* Status título + frase */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: statusColor, marginBottom: 4 }}>
-              {status.titulo}
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 500, color: '#667085', lineHeight: '19px' }}>
-              {status.frase}
-            </div>
-          </div>
-
           <SpendingGauge ratioMargem={ratioMargem} flashColor={flashColor} />
+
+          {!noTx && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+              <button onClick={() => setShowBreakdown(true)} style={{
+                background: 'none', border: 'none', padding: '4px 0',
+                cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                color: T.blue, fontFamily: T.font,
+              }}>
+                Ver cálculo →
+              </button>
+            </div>
+          )}
         </div>
         );
       })()}
@@ -1950,6 +1948,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
           todaySpent={gastosHoje}
           carryBeforeToday={accBufferStart}
           availableNow={margemAteHoje}
+          totalEntradas={stats.totalEntradas}
           onClose={() => setShowBreakdown(false)}
         />
       )}
@@ -2154,7 +2153,7 @@ function TelaEntrada({ tipo, onSalvar, onVoltar, initialData = null, minDate = n
 // ═══════════════════════════════════════════════════════════════
 // TELA 5 — Histórico
 // ═══════════════════════════════════════════════════════════════
-function TelaHistorico({ transacoes, onExcluir, onEditar, onVoltar }) {
+function TelaHistorico({ transacoes, ciclosAnteriores = [], onExcluir, onEditar, onVoltar }) {
   const [expandido, setExpandido] = React.useState(null);
   const [busca, setBusca] = React.useState('');
   const [confirmandoId, setConfirmandoId] = React.useState(null);
@@ -2362,6 +2361,41 @@ function TelaHistorico({ transacoes, onExcluir, onEditar, onVoltar }) {
           </Card>
         </div>
       ))}
+      {/* Ciclos anteriores arquivados */}
+      {ciclosAnteriores.length > 0 && (
+        <div style={{ padding: '24px 16px 0' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: T.textTer, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
+            Ciclos anteriores
+          </div>
+          {[...ciclosAnteriores].reverse().map((c, i) => {
+            const inicio = c.dataInicio ? new Date(c.dataInicio).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '?';
+            const fim    = c.dataFim    ? new Date(c.dataFim).toLocaleDateString('pt-BR',    { day: '2-digit', month: 'short', year: 'numeric' }) : '?';
+            const positivo = (c.saldoFinal || 0) >= 0;
+            return (
+              <div key={i} style={{
+                background: T.card, borderRadius: T.r14, padding: '14px 16px', marginBottom: 10,
+                border: T.border, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 2 }}>
+                    {inicio} – {fim}
+                  </div>
+                  <div style={{ fontSize: 11, color: T.textTer }}>
+                    {(c.transacoes || []).filter(t => t.tipo === 'gasto').length} gastos · cota {fmt(c.valorMensal / Math.max(1, c.diasDoMes))}/dia
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: positivo ? T.green : T.red }}>
+                    {positivo ? '+' : ''}{fmt(c.saldoFinal || 0)}
+                  </div>
+                  <div style={{ fontSize: 11, color: T.textTer }}>saldo final</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div style={{ height: 28 }} />
     </div>
   );
@@ -3263,10 +3297,11 @@ function App() {
       agendarLembrete(cfg.hora || '21:00');
     }
   }, []);
-  const snackTimerRef = React.useRef(null);
-  const deletedRef    = React.useRef(null);
-  const prevStateRef  = React.useRef(null);
-  const scrollRef     = React.useRef(null);
+  const snackTimerRef  = React.useRef(null);
+  const deletedRef     = React.useRef(null);
+  const prevStateRef   = React.useRef(null);
+  const isNovoCicloRef = React.useRef(false); // distingue "novo ciclo" de "editar config"
+  const scrollRef      = React.useRef(null);
 
   React.useEffect(() => { scrollRef.current?.scrollTo(0, 0); }, [tela]);
 
@@ -3300,10 +3335,14 @@ function App() {
   function handleIniciar({ valorMensal, diasDoMes, dataInicio }) {
     haptic('success');
     const transacoesExistentes = prevStateRef.current?.transacoes ?? [];
-    const isEditing = prevStateRef.current?.configurado === true;
+    // isEditing = verdadeiro só quando o usuário edita a config do ciclo atual (botão <)
+    // isNovoCicloRef = true quando vem do fluxo "Novo ciclo" → não carregar transações antigas
+    const isEditing = !isNovoCicloRef.current && prevStateRef.current?.configurado === true;
+    const ciclosAnteriores = state.ciclosAnteriores || [];
+    isNovoCicloRef.current = false;
     prevStateRef.current = null;
     const inicio = dataInicio ? new Date(dataInicio + 'T00:00:00').toISOString() : new Date().toISOString();
-    const next = { configurado: true, valorMensal, diasDoMes, dataInicio: inicio, transacoes: isEditing ? transacoesExistentes : [] };
+    const next = { configurado: true, valorMensal, diasDoMes, dataInicio: inicio, transacoes: isEditing ? transacoesExistentes : [], ciclosAnteriores };
     saveState(next); setState(next); setTela(TELAS.painel);
   }
 
@@ -3345,12 +3384,28 @@ function App() {
   function handleNovoMes({ carregarSaldo }) {
     haptic('medium');
     prevStateRef.current = state;
+    isNovoCicloRef.current = true;
     const stats = calcStats(state);
     const saldoParaCarregar = carregarSaldo ? stats.saldoTotalRestante : 0;
+
+    // Arquivar o ciclo atual antes de zerar
+    const cicloFechado = {
+      dataInicio: state.dataInicio,
+      dataFim: new Date().toISOString(),
+      diasDoMes: state.diasDoMes,
+      valorMensal: state.valorMensal,
+      transacoes: state.transacoes,
+      totalGastos: stats.totalGastos,
+      totalEntradas: stats.totalEntradas,
+      saldoFinal: stats.saldoTotalRestante,
+    };
+    const ciclosAnteriores = [...(state.ciclosAnteriores || []).slice(-11), cicloFechado];
+
     const reset = {
       configurado: false, valorMensal: 0, diasDoMes: 30,
       dataInicio: null, transacoes: [],
       saldoAnterior: saldoParaCarregar,
+      ciclosAnteriores,
     };
     saveState(reset); setState(reset); setShowNovoMes(false); setTela(TELAS.config);
   }
@@ -3394,11 +3449,11 @@ function App() {
   const renderTela = () => {
     switch (tela) {
       case TELAS.config:    return <TelaConfig onIniciar={handleIniciar} saldoAnterior={state.saldoAnterior || 0} onCancelar={prevStateRef.current ? handleCancelarNovoMes : handleVoltarParaOnboarding} initialConfig={state.configurado ? state : null} />;
-      case TELAS.painel:    return <TelaPainel state={state} flashId={flashId} flashType={flashType} onRegistrarGasto={() => setTela(TELAS.gasto)} onAdicionarExtra={() => setTela(TELAS.extra)} onHistorico={() => setTela(TELAS.historico)} onOpenMenu={() => setShowMenu(true)} onAnalise={() => setTela(TELAS.analise)} onEditar={item => handleEditar(item, TELAS.painel)} onExcluir={handleExcluir} onConfig={() => { prevStateRef.current = state; setTela(TELAS.config); }} onFechamento={() => setTela(TELAS.fechamento)} />;
+      case TELAS.painel:    return <TelaPainel state={state} flashId={flashId} flashType={flashType} onRegistrarGasto={() => setTela(TELAS.gasto)} onAdicionarExtra={() => setTela(TELAS.extra)} onHistorico={() => setTela(TELAS.historico)} onOpenMenu={() => setShowMenu(true)} onAnalise={() => setTela(TELAS.analise)} onEditar={item => handleEditar(item, TELAS.painel)} onExcluir={handleExcluir} onConfig={() => { prevStateRef.current = state; isNovoCicloRef.current = false; setTela(TELAS.config); }} onFechamento={() => setTela(TELAS.fechamento)} />;
       case TELAS.fechamento: return <TelaFechamentoCiclo state={state} onNovoMes={() => setShowNovoMes(true)} onHistorico={() => setTela(TELAS.historico)} onVoltar={() => setTela(TELAS.painel)} />;
       case TELAS.gasto:     return <TelaEntrada tipo="gasto"  minDate={state.dataInicio ? fmtDateKey(new Date(state.dataInicio).toISOString()) : null} onSalvar={v => handleEntrada('gasto', v)}  onVoltar={(tipo) => { if (tipo) triggerFlash(tipo); setTela(TELAS.painel); }} />;
       case TELAS.extra:     return <TelaEntrada tipo="extra"  minDate={state.dataInicio ? fmtDateKey(new Date(state.dataInicio).toISOString()) : null} onSalvar={v => handleEntrada('extra', v)}  onVoltar={(tipo) => { if (tipo) triggerFlash(tipo); setTela(TELAS.painel); }} />;
-      case TELAS.historico: return <TelaHistorico transacoes={state.transacoes} onExcluir={handleExcluir} onEditar={handleEditar} onVoltar={() => setTela(TELAS.painel)} />;
+      case TELAS.historico: return <TelaHistorico transacoes={state.transacoes} ciclosAnteriores={state.ciclosAnteriores || []} onExcluir={handleExcluir} onEditar={handleEditar} onVoltar={() => setTela(TELAS.painel)} />;
       case TELAS.analise:    return <TelaAnalise state={state} onVoltar={() => setTela(TELAS.painel)} />;
       case TELAS.editar:    return <TelaEntrada tipo={editandoItem?.tipo || 'gasto'} initialData={editandoItem} onSalvar={handleSalvarEdicao} onVoltar={(tipo) => { if (tipo) triggerFlash(tipo); setEditandoItem(null); setTela(editReturnTela); }} />;
       default: return null;
