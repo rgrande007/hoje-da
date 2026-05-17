@@ -3357,6 +3357,10 @@ function App() {
       ...prev,
       transacoes: [{ id: Date.now(), tipo, valor, descricao, categoria, data: dataObj.toISOString() }, ...prev.transacoes],
     }));
+    const msg = tipo === 'gasto'
+      ? `✅ Gasto de ${fmt(valor)} registrado`
+      : `✅ Entrada de ${fmt(valor)} registrada`;
+    showSnackbar(msg, null, null, 3000);
   }
 
   const [editReturnTela, setEditReturnTela] = React.useState(TELAS.historico);
