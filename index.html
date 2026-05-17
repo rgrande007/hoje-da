@@ -223,11 +223,18 @@ function calcStats(state) {
     metaRecuperacaoDiaria = valorDiarioBase - (deficitPlano / diasRestantes);
   }
 
+  const r2 = v => Math.round(v * 100) / 100;
+
   return {
-    diaAtual, diasRestantes, valorDiarioBase,
-    totalGastos, totalEntradas, saldoTotalRestante,
-    disponivelHoje, projecaoDiff, mediaGastoPorDia,
-    metaRecuperacaoDiaria,
+    diaAtual, diasRestantes,
+    valorDiarioBase:       r2(valorDiarioBase),
+    totalGastos:           r2(totalGastos),
+    totalEntradas:         r2(totalEntradas),
+    saldoTotalRestante:    r2(saldoTotalRestante),
+    disponivelHoje:        r2(disponivelHoje),
+    projecaoDiff:          r2(projecaoDiff),
+    mediaGastoPorDia:      r2(mediaGastoPorDia),
+    metaRecuperacaoDiaria: metaRecuperacaoDiaria != null ? r2(metaRecuperacaoDiaria) : null,
   };
 }
 
