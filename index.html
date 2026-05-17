@@ -1540,6 +1540,11 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
   const hoje = new Date();
   const dataHoje = hoje.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
   const dataHojeDisplay = (dataHoje.charAt(0).toUpperCase() + dataHoje.slice(1)).replace('.,', ',').replace(/\.(\s|$)/, '$1');
+  const dataFimDisplay = (() => {
+    const d = new Date(state.dataInicio + 'T00:00:00');
+    d.setDate(d.getDate() + Math.max(1, state.diasDoMes) - 1);
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  })();
 
   const margemAteHoje = stats.disponivelHoje;
   const ratioMargem = stats.valorDiarioBase > 0 ? margemAteHoje / stats.valorDiarioBase : 0;
@@ -1608,7 +1613,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
             <span style={{ fontSize: 13, fontWeight: 500, color: T.textSec }}>{dataHojeDisplay}</span>
           </div>
           <span style={{ fontSize: 12, fontWeight: 700, color: T.textTer, background: T.bgAlt, borderRadius: 99, padding: '3px 10px' }}>
-            Dia {stats.diaAtual} de {state.diasDoMes}
+            Dia {stats.diaAtual} de {state.diasDoMes} · até {dataFimDisplay}
           </span>
         </div>
       </div>
