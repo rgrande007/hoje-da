@@ -1,122 +1,131 @@
 # Design Spec — Barra "Uso do Dia"
 
 **Data:** 2026-05-17  
-**Status:** Aprovado  
+**Status:** Aprovado (design final)  
 **Componente alvo:** `TelaPainel` (card principal) em `index.html`
 
 ---
 
 ## Contexto
 
-O card principal do Hoje Dá exibe o valor disponível hoje e uma barra visual de uso. O redesign substitui a barra existente e o `SpendingGauge` por um componente único de duas camadas que responde a 4 estados financeiros distintos.
+O card principal do Hoje Dá exibe o valor disponível hoje e uma barra visual de uso. O redesign substitui a barra de "bateria" existente (`isNeg ? barra vermelha : barra bizona fill`) por um novo componente `UsoDoDiaBar` com lógica invertida: barra começa cheia e drena da direita para a esquerda conforme o gasto aumenta.
+
+`SpendingGauge` (Ritmo do Plano) **permanece no card**, abaixo da nova barra.
 
 ---
 
 ## O que muda
 
-### Removido do card principal
-- `SpendingGauge` (barra "Ritmo do Plano") — movido para `TelaAnalise` (análise já existente, sem perda de funcionalidade)
+### Substituído no card principal
+- Bloco da barra atual (~linha 1776–1826 em `TelaPainel`) → novo componente `UsoDoDiaBar`
 
-### Adicionado ao card principal
-- Novo componente `UsoDoDiaBar` com barra bicolor + balão de consumo + ticks de remanescente
+### O que NÃO muda
+- Hero value (DISPONÍVEL HOJE + valor grande + frase contextual)
+- Status pill
+- `SpendingGauge` — permanece no card
+- Botão "Como chegamos aqui?" (`CalculationBreakdownSheet`)
+- `WeeklyMiniChart`, "Resumo do ciclo", botões de ação
 
 ---
 
 ## Componente: `UsoDoDiaBar`
 
-### Props recebidas (via `calcStats` + locais já calculados em `TelaPainel`)
+### Variáveis (já calculadas em `TelaPainel` ~linha 1712)
+
+```js
+const base          = stats.valorDiarioBase        // cota diária
+const accBufferStart                               // margem acumulada
+const gastosHoje                                   // total gasto hoje
+const totalCapacity = base + accBufferStart        // capacidade total do dia
+const excedente     = Math.max(0, gastosHoje - totalCapacity)
+const remainingPct  = totalCapacity > 0
+  ? Math.max(0, (totalCapacity - gastosHoje) / totalCapacity) * 100
+  : 0
+```
+
+### Layout da barra (fixo, independente do estado)
 
 ```
-base          = stats.valorDiarioBase          // cota diária
-accBufferStart                                  // margem acumulada (folga + entradas)
-gastosHoje                                      // total gasto hoje
-totalCapacity = base + accBufferStart           // capacidade total do dia
+[← margem (amarelo, left)  |  cota (azul, right) →]
 ```
 
-### Estados e comportamento visual
+- Margem zone: `accBufferStart / totalCapacity * 100%` da esquerda  
+- Cota zone: `base / totalCapacity * 100%` da direita  
+- Delimitador branco fixo na fronteira margem/cota: `accBufferStart / totalCapacity * 100%` da esquerda
+
+A barra drena da **direita para a esquerda** — cota é consumida primeiro, depois a margem.
+
+### Estados
 
 #### Estado 0 — Sem gastos (`gastosHoje === 0`)
-- Barra: background bicolor (azul claro = zona cota / amarelo claro = zona margem)
-- Sem fill, sem balão
-- 1 delimitador branco na fronteira cota/margem (`quotaZonePct = base/totalCapacity * 100%`)
-- Ticks abaixo:
-  - Esquerdo (azul): `R$ {base}` / "restam da cota"
-  - Direito (amarelo): `R$ {accBufferStart}` / "restam da margem"
-  - (se `accBufferStart === 0`: tick direito oculto)
+- Barra totalmente colorida: [amarelo | azul], sem cinza
+- Sem balloon
+- 1 delimitador branco em `buffZonePct`
+- Ticks: `[margem: accBufferStart (amarelo)] [cota: base (azul)]`
+- (Se `accBufferStart === 0`: omitir zone amarela e tick de margem)
 
-#### Estado 1 — Dentro da cota (`0 < gastosHoje <= base`)
-- Fill azul da esquerda: `spendPct = gastosHoje / totalCapacity * 100%`
-- Balão azul na ponta do fill (posição `left: spendPct%`): mostra `gastosHoje`
-- 1 delimitador branco em `quotaZonePct`
-- Ticks abaixo:
-  - Esquerdo (azul): `max(0, base − gastosHoje)` / "restam da cota"
-  - Direito (amarelo): `accBufferStart` / "restam da margem"
+#### Estado 1 — Dentro da cota (`0 < gastosHoje ≤ base`)
+- Barra: `[amarelo 0–buffZonePct%] [azul restante da cota] [cinza #E2E8F0 à direita]`
+  - `cotaRestPct = (base - gastosHoje) / totalCapacity * 100%`
+  - Cinza começa em `buffZonePct + cotaRestPct` = `remainingPct`
+- Balloon **azul** posicionado em `left: remainingPct%`
+- 1 delimitador branco em `buffZonePct` (fixo)
+- 1 linha sutil em `remainingPct` (borda do cinza, opcional)
+- Ticks: `[margem: accBufferStart (amarelo)] [cota: base − gastosHoje (azul)]`
 
-#### Estado 2 — Dentro da margem (`base < gastosHoje <= totalCapacity`)
-- Fill azul (cota completa: `quotaZonePct`) + fill amarelo (na zona margem)
-- Posição total fill: `spendPct = gastosHoje / totalCapacity * 100%`
-- Balão **amarelo** na ponta do fill
-- 1 delimitador branco em `quotaZonePct`
-- Ticks abaixo:
-  - Esquerdo (cinza): `R$ 0,00` / "restam da cota"
-  - Direito (amarelo): `max(0, accBufferStart − (gastosHoje − base))` / "restam da margem"
+#### Estado 2 — Dentro da margem (`base < gastosHoje ≤ totalCapacity`)
+- Barra: `[amarelo restante da margem] [cinza #E2E8F0 à direita]`
+  - `margRestPct = (totalCapacity - gastosHoje) / totalCapacity * 100%` (= `remainingPct`)
+- Balloon **amarelo** em `left: remainingPct%`
+- Delimitador original em `buffZonePct` — agora dentro da zona cinza, exibido com `opacity: 0.4`
+- Ticks: `[margem: totalCapacity − gastosHoje (amarelo)] [cota: R$0,00 (cinza)]`
 
 #### Estado 3 — Passou (`gastosHoje > totalCapacity`)
-- Barra 3 segmentos, 100% contidos com `overflow: hidden`:
-  - Azul: `base / gastosHoje * 100%`
-  - Amarelo: `accBufferStart / gastosHoje * 100%`
-  - Vermelho: `excedente / gastosHoje * 100%` (onde `excedente = gastosHoje − totalCapacity`)
-- Balão **vermelho**, ancorado no limite direito (`right: 0`)
-- 2 delimitadores brancos: em `(base/gastosHoje)*100%` e em `((base+accBufferStart)/gastosHoje)*100%`
-- 3 ticks abaixo:
-  - Esquerdo (cinza): `R$ 0,00` / "restam da cota"
-  - Centro (cinza): `R$ 0,00` / "restam da margem"
-  - Direito (vermelho): `R$ {excedente}` / "excedente"
+- Barra toda em **vermelho claro** (`#FECDD3`), sem fill nem zones — `overflow: hidden`, border-radius mantido
+- Balloon **vermelho** (`#E35D6A`) ancorado no extremo esquerdo: `position: absolute; left: 0`
+- Delimitador original em `buffZonePct` — exibido com `rgba(255,255,255,0.6)` sobre o vermelho
+- 3 ticks: `[excedente: gastosHoje − totalCapacity (vermelho)] [margem: R$0,00 (cinza)] [cota: R$0,00 (cinza)]`
 
-### Balão (callout)
+### Balloon (callout)
 
 ```
-┌──────────────────┐
-│   R$ XX,XX       │  ← pill com sombra
-└──────────────────┘
-         ▼           ← triângulo (border-trick, mesma cor do pill)
-    [ponta do fill]
+┌──────────────────────┐
+│  R$ XX,XX gastos     │   ← pill (border-radius 99px, padding 4px 12px)
+└──────────────────────┘
+            ▼              ← triângulo (border-trick, mesma cor)
+      [borda do remaining]
 ```
 
-- Pill: `border-radius: 99px`, padding `5px 14px`, font `12px/800`
-- Triângulo: `border-left/right: 6px transparent`, `border-top: 8px solid {cor}`
-- Cor: azul (estado 1) / amarelo (estado 2) / vermelho (estado 3)
-- Estado 3: `position: absolute; right: 0` (sem `translateX`)
-- Estados 1-2: `position: absolute; left: {spendPct}%; transform: translateX(-50%)`
-
-### Delimitadores
-
-- `position: absolute; width: 2.5px; background: white; border-radius: 2px`
-- Aplicados via overlay div (`z-index: 3`) sobre a barra com `overflow: hidden`
-- Extensão: `top: -2px; bottom: -2px` para ficar visível sobre os cantos da barra
+- **Cor**: azul (estado 1) / amarelo (estado 2) / vermelho (estado 3)
+- **Posição estados 1–2**: `position: absolute; left: clamp(8%, remainingPct%, 90%); transform: translateX(-50%)`
+  - Clampar para evitar corte nas bordas
+- **Posição estado 3**: `position: absolute; left: 0` (sem transform), triângulo com `margin-left: 14px`
 
 ### Ticks
 
-- Layout: `display: grid`
-  - Estado 0/1/2: `grid-template-columns: 1fr 1fr`
-  - Estado 3: `grid-template-columns: 1fr 1fr 1fr`
+- **Estados 0, 1, 2**: `display: grid; grid-template-columns: 1fr 1fr`
+  - Esquerdo: restam da margem
+  - Direito: restam da cota
+- **Estado 3**: `display: grid; grid-template-columns: 1fr 1fr 1fr`
+  - Esquerdo: excedente (vermelho)
+  - Centro: margem R$0,00 (cinza)
+  - Direito: cota R$0,00 (cinza)
 - Valor: `font-size: 12px; font-weight: 800`
 - Rótulo: `font-size: 9px; color: T.textTer`
-- Cor do valor: azul (`T.blue`) / amarelo (`T.yellow`) / cinza (`T.textTer`) / vermelho (`T.red`) conforme contexto
 
----
+### Delimitador fixo (margem/cota boundary)
 
-## O que NÃO muda
+```js
+const buffZonePct = totalCapacity > 0
+  ? (accBufferStart / totalCapacity) * 100
+  : 0
+```
 
-- Hero value (DISPONÍVEL HOJE + valor grande + frase contextual)
-- Status pill
-- Botão "Como chegamos aqui?" (`CalculationBreakdownSheet`)
-- `WeeklyMiniChart`, "Resumo do ciclo", botões de ação — inalterados
-
-## Decisão de escopo: `SpendingGauge`
-
-`SpendingGauge` é chamado **somente** em `TelaPainel` (linha 1831). Não está em `TelaAnalise`.
-Ao remover do card, o componente fica sem uso. **Decisão: remover a chamada do card e manter o componente no código** — preserva a opção de adicioná-lo a `TelaAnalise` no futuro sem reescrever.
+- `position: absolute; left: buffZonePct%; top: -2px; bottom: -2px; width: 2.5px; background: white; transform: translateX(-50%); border-radius: 2px; z-index: 3`
+- Aplicado via overlay div sobre a barra (para funcionar com `overflow: hidden`)
+- Estados 0 e 1: opacidade total
+- Estado 2: `opacity: 0.4` (dentro do cinza)
+- Estado 3: `rgba(255,255,255,0.6)` (sobre o vermelho claro)
 
 ---
 
@@ -124,10 +133,11 @@ Ao remover do card, o componente fica sem uso. **Decisão: remover a chamada do 
 
 | Situação | Comportamento |
 |---|---|
-| `accBufferStart === 0` (sem margem) | Tick direito oculto; barra é 100% zona cota |
-| `totalCapacity === 0` | Barra oculta, sem fill, sem balão |
-| `gastosHoje === totalCapacity` exato | Estado 2, balão em `left: 100%` — clampar posição com `Math.min(spendPct, 92)` para não cortar pill na borda direita |
-| `base === 0` | Barra é 100% zona margem |
+| `accBufferStart === 0` | Barra 100% azul (só cota); sem zone amarela; sem delimitador; ticks só mostra cota |
+| `totalCapacity === 0` | Componente não renderiza |
+| `base === 0` | Barra 100% amarela (só margem) |
+| `remainingPct` perto de 0 | Balloon clampa em `left: 8%` para não cortar na borda esquerda |
+| `remainingPct` perto de 100 | Balloon clampa em `left: 90%` para não cortar na borda direita |
 
 ---
 
@@ -136,6 +146,5 @@ Ao remover do card, o componente fica sem uso. **Decisão: remover a chamada do 
 | Elemento | Linha aprox. |
 |---|---|
 | Variáveis locais (`totalCapacity`, `spendPct` etc.) | `TelaPainel` ~1712 |
-| Barra atual a substituir | ~1776–1826 |
-| `SpendingGauge` call a remover do card | ~1831 |
-| `SpendingGauge` a manter em `TelaAnalise` | verificar `TelaAnalise` ~2414 |
+| **Bloco a substituir** (barra atual) | ~1776–1826 |
+| `SpendingGauge` call — **manter** | ~1831 |
