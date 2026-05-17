@@ -968,10 +968,10 @@ function SpendingGauge({ ratioMargem, flashColor }) {
   let pos;
   if (ratioMargem < 0) {
     pos = mapClamped(ratioMargem, -2, 0, 5, 25);
-  } else if (ratioMargem < 0.5) {
-    pos = mapClamped(ratioMargem, 0, 0.5, 25, 50);
+  } else if (ratioMargem < 0.25) {
+    pos = mapClamped(ratioMargem, 0, 0.25, 25, 50);
   } else if (ratioMargem < 1.5) {
-    pos = mapClamped(ratioMargem, 0.5, 1.5, 50, 75);
+    pos = mapClamped(ratioMargem, 0.25, 1.5, 50, 75);
   } else {
     pos = mapClamped(ratioMargem, 1.5, 3, 75, 95);
   }
