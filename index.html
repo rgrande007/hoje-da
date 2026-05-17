@@ -169,6 +169,7 @@ const CATS = [
   { id: 'lazer',       label: 'Lazer',       emoji: '🎮', cor: 'oklch(0.56 0.20 295)' },
   { id: 'educacao',    label: 'Educação',    emoji: '📚', cor: 'oklch(0.58 0.18 225)' },
   { id: 'vestuario',   label: 'Vestuário',   emoji: '👕', cor: 'oklch(0.60 0.18 0)'   },
+  { id: 'pets',        label: 'Pets',        emoji: '🐾', cor: 'oklch(0.58 0.16 60)'  },
   { id: 'outros',      label: 'Outros',      emoji: '📦', cor: T.textSec              },
 ];
 const getCat = id => CATS.find(c => c.id === id) || CATS[7];
@@ -277,7 +278,7 @@ function getStatusDiario(stats, { gastosHoje = 0, ratioMargem = 0 } = {}) {
   // Estado 2 — ciclo ok, mas cota do dia ultrapassada
   if (cotaDiaExcedida) {
     return {
-      titulo: 'Passou da cota hoje 👀',
+      titulo: 'Passou da cota hoje ⚡',
       frase: `Você passou ${fmt(excesoHoje)} acima da cota (${fmt(base)}), mas tem ${fmt(margem)} de margem acumulada — o ciclo ainda está ok.`,
       nivel: 'amarelo',
     };
@@ -1475,10 +1476,10 @@ function CalculationBreakdownSheet({ dailyQuota, todaySpent, carryBeforeToday, a
         {/* LINHAS DE CÁLCULO — prova da conta */}
         <div style={{ marginBottom: 8 }}>
 
-          {/* 1. Valor de hoje */}
+          {/* 1. Cota de hoje */}
           <CalcRow
             icon={<IconCircle bg={T.blueLight} border={T.blue} emoji="📅" />}
-            title="Valor de hoje"
+            title="Cota de hoje"
             subtitle={!withinQuota ? 'Cota diária' : undefined}
             value={fmt(dailyQuota)}
           />
@@ -1547,12 +1548,6 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
   const hoje = new Date();
   const dataHoje = hoje.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
   const dataHojeDisplay = (dataHoje.charAt(0).toUpperCase() + dataHoje.slice(1)).replace('.,', ',').replace(/\.(\s|$)/, '$1');
-  const dataFimDisplay = (() => {
-    const d = new Date(state.dataInicio + 'T00:00:00');
-    d.setDate(d.getDate() + Math.max(1, state.diasDoMes) - 1);
-    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-  })();
-
   const margemAteHoje = stats.disponivelHoje;
   const ratioMargem = stats.valorDiarioBase > 0 ? margemAteHoje / stats.valorDiarioBase : 0;
   const orcamentoUsadoPct = state.valorMensal > 0 ? (stats.totalGastos / (state.valorMensal + stats.totalEntradas)) * 100 : 0;
@@ -1570,7 +1565,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
   const PILL_LABELS = {
     'Ciclo acima do planejado': 'Passou',
     'Saiu do plano': 'Passou',
-    'Passou da cota hoje 👀': 'Acima da cota',
+    'Passou da cota hoje ⚡': 'Apertado',
     'Hoje está apertado 👀': 'Apertado',
     'Você está no plano ✅': 'No plano',
     'Você está com folga 🌿': 'Com folga',
@@ -1597,7 +1592,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
               flexShrink: 0,
             }} title="Editar configuração do ciclo">
-              <IcoBack c={T.blue} s={16} />
+              <IcoEdit c={T.blue} s={16} />
             </button>
             <img src="/icons/icon-512.png" width="28" height="28" alt="Hoje Dá" style={{ borderRadius: 7, flexShrink: 0 }} />
             <span style={{ fontSize: 22, fontWeight: 800, color: T.text, letterSpacing: -0.5 }}>Hoje Dá</span>
@@ -1620,7 +1615,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
             <span style={{ fontSize: 13, fontWeight: 500, color: T.textSec }}>{dataHojeDisplay}</span>
           </div>
           <span style={{ fontSize: 12, fontWeight: 700, color: T.textTer, background: T.bgAlt, borderRadius: 99, padding: '3px 10px' }}>
-            Dia {stats.diaAtual} de {state.diasDoMes} · até {dataFimDisplay}
+            Dia {stats.diaAtual} de {state.diasDoMes}
           </span>
         </div>
       </div>
@@ -1649,8 +1644,6 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
         const isNeg       = avail < 0;
         const noTx        = state.transacoes.length === 0;
 
-        // Buffer acumulado antes de hoje começar
-        const accBufferStart = Math.max(0, avail + gastosHoje - base);
         const totalCapacity  = base + accBufferStart;
         // Margem que sobra depois de descontar o excesso de hoje
         const todayOverflow       = Math.max(0, gastosHoje - base);
@@ -1706,11 +1699,6 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
               {noTx ? '✏️ Registre seu primeiro gasto do dia' : statusObj.frase}
             </div>
 
-            {isNeg && stats.metaRecuperacaoDiaria != null && stats.metaRecuperacaoDiaria > 0 && (
-              <div style={{ fontSize: 12, color: T.red, marginTop: 3 }}>
-                meta: {fmt(stats.metaRecuperacaoDiaria)}/dia nos próximos {stats.diasRestantes} {stats.diasRestantes === 1 ? 'dia' : 'dias'}
-              </div>
-            )}
           </div>
 
           {/* Barra de duas zonas proporcionais (cota → acumulado) */}
@@ -2123,7 +2111,7 @@ function TelaEntrada({ tipo, onSalvar, onVoltar, initialData = null, minDate = n
 
         {/* Data do lançamento */}
         <div style={{ padding: '8px 16px 0' }}>
-          <DateSpinner
+          <NativeDatePicker
             label="Data do lançamento"
             value={dataLancamento}
             onChange={setDataLancamento}
