@@ -172,7 +172,7 @@ const CATS = [
   { id: 'pets',        label: 'Pets',        emoji: '🐾', cor: 'oklch(0.58 0.16 60)'  },
   { id: 'outros',      label: 'Outros',      emoji: '📦', cor: T.textSec              },
 ];
-const getCat = id => CATS.find(c => c.id === id) || CATS[7];
+const getCat = id => CATS.find(c => c.id === id) || CATS[8];
 
 const INCOME_CATS = [
   { id: 'salario',   label: 'Salário',   emoji: '💼', cor: 'oklch(0.58 0.18 152)' },
@@ -194,10 +194,9 @@ function calcStats(state) {
     ? hojeDate
     : new Date(inicioRaw.getFullYear(), inicioRaw.getMonth(), inicioRaw.getDate());
   const safeDias = Math.max(1, state.diasDoMes || 1);
-  const diaAtual = Math.max(1, Math.min(
-    Math.floor((hojeDate - inicioDate) / 86400000) + 1,
-    safeDias
-  ));
+  const rawDia = Math.floor((hojeDate - inicioDate) / 86400000) + 1;
+  const cicloEncerrado = rawDia > safeDias;
+  const diaAtual = Math.max(1, Math.min(rawDia, safeDias));
   const diasRestantes    = safeDias - diaAtual;
   const valorDiarioBase  = state.valorMensal / safeDias;
   // Filtrar transações futuras — não entram nos totais
@@ -227,6 +226,7 @@ function calcStats(state) {
   const r2 = v => Math.round(v * 100) / 100;
 
   return {
+    cicloEncerrado,
     diaAtual, diasRestantes,
     valorDiarioBase:       r2(valorDiarioBase),
     totalGastos:           r2(totalGastos),
@@ -250,62 +250,110 @@ function getStatusDiario(stats, { gastosHoje = 0, ratioMargem = 0 } = {}) {
   const base = (isFinite(stats.valorDiarioBase) && stats.valorDiarioBase > 0) ? stats.valorDiarioBase : 1;
   const margem = stats.disponivelHoje;
   const cotaDiaExcedida = gastosHoje > base;
-  const excesoHoje = Math.max(0, gastosHoje - base);
 
-  // Estado 1 — ciclo no negativo (déficit acumulado)
+  // Estado 1 — saldo do período negativo (déficit acumulado)
   if (margem < 0) {
-    if (stats.diasRestantes <= 0) {
+    if (stats.cicloEncerrado) {
       return {
-        titulo: 'Ciclo acima do planejado',
-        frase: 'Esse ciclo terminou acima do planejado. Ajuste no próximo.',
+        titulo: 'Fora do previsto (encerrado)',
+        pill: 'Passou',
+        frase: 'O período encerrou acima do previsto. Ajuste no próximo.',
         nivel: 'vermelho',
       };
     }
     if (stats.metaRecuperacaoDiaria != null && stats.metaRecuperacaoDiaria > 0) {
       return {
-        titulo: 'Saiu do plano',
-        frase: `Gaste até ${fmt(stats.metaRecuperacaoDiaria)}/dia nos próximos ${stats.diasRestantes} ${stats.diasRestantes === 1 ? 'dia' : 'dias'} e você volta ao trilho — é possível.`,
+        titulo: 'Fora do previsto recuperável',
+        pill: 'Passou',
+        frase: `Você passou ${fmt(Math.abs(margem))} do que estava disponível até hoje. Para voltar ao plano, tente gastar até ${fmt(stats.metaRecuperacaoDiaria)}/dia.`,
         nivel: 'vermelho',
       };
     }
     return {
-      titulo: 'Saiu do plano',
-      frase: 'O ritmo atual torna a recuperação difícil. Registre uma entrada extra para ajudar a reequilibrar.',
+      titulo: 'Fora do previsto difícil',
+      pill: 'Passou',
+      frase: 'Você passou do que estava disponível até hoje. Uma entrada extra ou um novo ajuste pode ajudar.',
       nivel: 'vermelho',
     };
   }
 
-  // Estado 2 — ciclo ok, mas cota do dia ultrapassada
+  // Estado 2 — saldo ok, mas valor do dia ultrapassado
   if (cotaDiaExcedida) {
     return {
-      titulo: 'Passou da cota hoje ⚡',
-      frase: `Você passou ${fmt(excesoHoje)} acima da cota (${fmt(base)}), mas tem ${fmt(margem)} de margem acumulada — o ciclo ainda está ok.`,
+      titulo: 'Passou do valor de hoje',
+      pill: 'Apertado',
+      frase: `Você passou do valor de hoje, mas ainda tem ${fmt(margem)} guardados dos outros dias.`,
       nivel: 'amarelo',
     };
   }
 
-  // Estado 3 — ciclo ok, dentro da cota do dia
+  // Estado 3 — saldo ok, dentro do valor do dia
   if (ratioMargem < 0.25) {
     return {
-      titulo: 'Hoje está apertado 👀',
-      frase: 'Ainda tem margem, mas é melhor gastar pouco para não pressionar os próximos dias.',
+      titulo: 'Apertado',
+      pill: 'Apertado',
+      frase: 'Ainda dá, mas restou pouco para hoje. Melhor ir com calma nos próximos gastos.',
       nivel: 'amarelo',
     };
   }
 
   if (ratioMargem < 1.5) {
     return {
-      titulo: 'Você está no plano ✅',
-      frase: margem > 0 ? `Você tem ${fmt(margem)} disponíveis. Continue nesse ritmo.` : 'Continue nesse ritmo.',
+      titulo: 'No plano',
+      pill: 'No plano',
+      frase: `Você ainda tem ${fmt(margem)} para usar. Está tudo dentro do combinado.`,
       nivel: 'azul',
     };
   }
 
   return {
-    titulo: 'Você está com folga 🌿',
-    frase: margem > 0 ? `Você tem ${fmt(margem)} disponíveis e tá com folga no ciclo. Ótimo ritmo!` : 'Você está com folga no ciclo. Bom trabalho.',
+    titulo: 'Com folga',
+    pill: 'Com folga',
+    frase: `Você ainda tem ${fmt(margem)} para usar e está com sobra dos outros dias.`,
     nivel: 'verde',
   };
+}
+
+function getPlanRhythmStatus(stats) {
+  const { mediaGastoPorDia, valorDiarioBase, projecaoDiff, diaAtual, totalGastos } = stats;
+  const poucosDados = diaAtual < 3 || totalGastos === 0;
+
+  if (poucosDados) {
+    return {
+      estado: 'cedo',
+      titulo: 'Ainda cedo',
+      frase: 'Depois de alguns dias, o app mostra se seu ritmo está funcionando.',
+      cor: null,
+      ratioRitmo: 0,
+    };
+  }
+
+  const ratioRitmo = valorDiarioBase > 0 ? mediaGastoPorDia / valorDiarioBase : 0;
+  const deltaDiario = mediaGastoPorDia - valorDiarioBase;
+
+  let estado, titulo, cor;
+  if (ratioRitmo <= 0.80) {
+    estado = 'leve'; titulo = 'Ritmo leve'; cor = '#31A46C';
+  } else if (ratioRitmo <= 1.00) {
+    estado = 'ok'; titulo = 'No ritmo'; cor = '#2F6FED';
+  } else if (ratioRitmo <= 1.15) {
+    estado = 'atencao'; titulo = 'Atenção'; cor = '#E8B63E';
+  } else {
+    estado = 'alto'; titulo = 'Ritmo alto'; cor = '#E35D6A';
+  }
+
+  let frase;
+  if (ratioRitmo <= 0.80) {
+    frase = `Você está gastando ${fmt(Math.abs(deltaDiario))} a menos por dia que o planejado.`;
+  } else if (ratioRitmo <= 1.00) {
+    frase = 'Sua média está dentro do combinado.';
+  } else if (projecaoDiff < 0) {
+    frase = `Se continuar assim, pode passar ${fmt(Math.abs(projecaoDiff))} no fim do ciclo.`;
+  } else {
+    frase = `Você está gastando ${fmt(deltaDiario)} a mais por dia que o planejado.`;
+  }
+
+  return { estado, titulo, frase, cor, ratioRitmo, deltaDiario };
 }
 
 // ─── Ícones SVG ───────────────────────────────────────────────────────────────
@@ -676,7 +724,9 @@ function TelaConfig({ onIniciar, saldoAnterior = 0, onCancelar = null, initialCo
   function handleChange(e) {
     const text = e.target.value.replace(/[^0-9,.]/g, '');
     setInputText(text);
-    const raw = text.replace(/\./g, '').replace(',', '.');
+    const raw = text.includes(',')
+      ? text.replace(/\./g, '').replace(',', '.')
+      : text;
     const v = parseFloat(raw);
     if (!isNaN(v) && v >= 0) setValor(v);
   }
@@ -880,7 +930,7 @@ function TelaConfig({ onIniciar, saldoAnterior = 0, onCancelar = null, initialCo
               const h = new Date(); const fim = new Date(h); fim.setDate(fim.getDate() + 29);
               setDataInicio(fmtDateKey(h.toISOString())); setDataFim(fmtDateKey(fim.toISOString()));
             }},
-            { label: 'Próx. mês', action: () => {
+            { label: 'Próx. ciclo', action: () => {
               const h = new Date(); const inicio = new Date(h.getFullYear(), h.getMonth() + 1, 1);
               const fim = new Date(h.getFullYear(), h.getMonth() + 2, 0);
               setDataInicio(fmtDateKey(inicio.toISOString())); setDataFim(fmtDateKey(fim.toISOString()));
@@ -966,57 +1016,69 @@ function TelaConfig({ onIniciar, saldoAnterior = 0, onCancelar = null, initialCo
   );
 }
 
-// ─── SpendingGauge — régua segmentada de status ──────────────────────────────
-function SpendingGauge({ ratioMargem, flashColor }) {
+// ─── SpendingGauge — régua de ritmo do plano ─────────────────────────────────
+function SpendingGauge({ stats, flashColor }) {
+  const rhythm = getPlanRhythmStatus(stats);
+
   function mapClamped(value, inMin, inMax, outMin, outMax) {
     const clamped = Math.max(inMin, Math.min(inMax, value));
     return outMin + (clamped - inMin) / (inMax - inMin) * (outMax - outMin);
   }
 
+  const r = rhythm.ratioRitmo;
   let pos;
-  if (ratioMargem < 0) {
-    pos = mapClamped(ratioMargem, -2, 0, 5, 25);
-  } else if (ratioMargem < 0.25) {
-    pos = mapClamped(ratioMargem, 0, 0.25, 25, 50);
-  } else if (ratioMargem < 1.5) {
-    pos = mapClamped(ratioMargem, 0.25, 1.5, 50, 75);
+  if (rhythm.estado === 'cedo') {
+    pos = 37;
+  } else if (r <= 0.80) {
+    pos = mapClamped(r, 0, 0.80, 5, 25);
+  } else if (r <= 1.00) {
+    pos = mapClamped(r, 0.80, 1.00, 25, 50);
+  } else if (r <= 1.15) {
+    pos = mapClamped(r, 1.00, 1.15, 50, 75);
   } else {
-    pos = mapClamped(ratioMargem, 1.5, 3, 75, 95);
+    pos = mapClamped(r, 1.15, 2, 75, 95);
   }
 
   const SEGS = [
-    { label: 'Passou',    color: '#E35D6A' },
-    { label: 'Apertado',  color: '#E8B63E' },
-    { label: 'No plano',  color: '#2F6FED' },
-    { label: 'Com folga', color: '#31A46C' },
+    { label: 'Ritmo leve', color: '#31A46C' },
+    { label: 'No ritmo',   color: '#2F6FED' },
+    { label: 'Atenção',    color: '#E8B63E' },
+    { label: 'Ritmo alto', color: '#E35D6A' },
   ];
-  const si = ratioMargem < 0 ? 0 : ratioMargem < 0.25 ? 1 : ratioMargem < 1.5 ? 2 : 3;
+
+  const si = rhythm.estado === 'cedo' ? -1
+    : r <= 0.80 ? 0
+    : r <= 1.00 ? 1
+    : r <= 1.15 ? 2
+    : 3;
+
+  const markerColor = si >= 0 ? SEGS[si].color : '#94A3B8';
 
   return (
     <div style={{ marginTop: 20 }}>
-      {/* Label acima */}
-      <div style={{ marginBottom: 6 }}>
+      {/* Label + estado ativo */}
+      <div style={{ marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: 10, fontWeight: 700, color: T.textSec, textTransform: 'uppercase', letterSpacing: 1.1 }}>
-          Saúde do plano
+          Ritmo do plano
         </span>
+        {si >= 0 && (
+          <span style={{ fontSize: 10, fontWeight: 700, color: markerColor }}>{SEGS[si].label}</span>
+        )}
       </div>
       {/* Barra + triângulo marcador */}
       <div style={{ position: 'relative', paddingTop: 16 }}>
-        {/* Triângulo apontando para baixo — desliza sobre a barra */}
         <div style={{
           position: 'absolute',
           left: `${pos}%`,
           top: 0,
           transform: 'translateX(-50%)',
-          width: 0,
-          height: 0,
+          width: 0, height: 0,
           borderLeft: '9px solid transparent',
           borderRight: '9px solid transparent',
-          borderTop: `13px solid ${SEGS[si].color}`,
-          filter: `drop-shadow(0 2px 4px ${SEGS[si].color}88)`,
+          borderTop: `13px solid ${markerColor}`,
+          filter: `drop-shadow(0 2px 4px ${markerColor}88)`,
           transition: 'left 0.5s cubic-bezier(.2,.8,.3,1), border-top-color 0.3s',
-          zIndex: 3,
-          pointerEvents: 'none',
+          zIndex: 3, pointerEvents: 'none',
         }} />
         <div style={{ display: 'flex', height: 20, borderRadius: 999, overflow: 'hidden' }}>
           {SEGS.map((seg, i) => (
@@ -1036,6 +1098,23 @@ function SpendingGauge({ ratioMargem, flashColor }) {
             }}>{seg.label}</span>
           </div>
         ))}
+      </div>
+      {/* Planejado vs Sua média */}
+      {rhythm.estado !== 'cedo' && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+          <div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: T.textTer, textTransform: 'uppercase', letterSpacing: 0.8 }}>Planejado</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.textSec }}>{fmt(stats.valorDiarioBase)}/dia</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: T.textTer, textTransform: 'uppercase', letterSpacing: 0.8 }}>Sua média</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: markerColor }}>{fmt(stats.mediaGastoPorDia)}/dia</div>
+          </div>
+        </div>
+      )}
+      {/* Frase humana */}
+      <div style={{ marginTop: 8, fontSize: 11, fontWeight: 500, lineHeight: 1.4, color: rhythm.estado === 'cedo' ? T.textTer : markerColor }}>
+        {rhythm.frase}
       </div>
     </div>
   );
@@ -1244,7 +1323,7 @@ function TelaFechamentoCiclo({ state, onNovoMes, onHistorico, onVoltar }) {
       {/* Cards de stats */}
       <div style={{ padding: '0 16px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
         {[
-          { label: 'Orçado', value: fmt(state.valorMensal), ico: '📋' },
+          { label: 'Planejado', value: fmt(state.valorMensal), ico: '📋' },
           { label: 'Gasto total', value: fmt(stats.totalGastos), ico: '💸' },
           { label: 'Dias no ciclo', value: `${state.diasDoMes}d`, ico: '📅' },
         ].map(item => (
@@ -1540,6 +1619,186 @@ function CalculationBreakdownSheet({ dailyQuota, todaySpent, carryBeforeToday, a
   );
 }
 
+// ─── UsoDoDiaBar — barra de uso do dia (drena direita → esquerda) ─────────────
+function UsoDoDiaBar({ base, accBufferStart, gastosHoje }) {
+  const totalCapacity = base + accBufferStart;
+  if (totalCapacity === 0) return null;
+
+  const passou       = gastosHoje > totalCapacity;
+  const emMargem     = gastosHoje > base && !passou;
+  const semGastos    = gastosHoje === 0;
+  const excedente    = Math.max(0, gastosHoje - totalCapacity);
+  const cotaRestante = Math.max(0, base - gastosHoje);
+  const margRestante = Math.max(0, accBufferStart - Math.max(0, gastosHoje - base));
+
+  // buffZonePct: posição do delimitador margem/cota (% da esquerda, fixo)
+  const buffZonePct  = (accBufferStart / totalCapacity) * 100;
+  // remainingPct: onde termina a parte colorida (borda direita do restante)
+  const remainingPct = Math.max(0, (totalCapacity - gastosHoje) / totalCapacity * 100);
+  // balloonLeft: clampa para não cortar o pill nas bordas
+  const balloonLeft  = Math.min(Math.max(remainingPct, 8), 90);
+
+  const balloonColor = passou ? T.red : emMargem ? T.yellow : T.blue;
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{
+        fontSize: 10, fontWeight: 700, color: T.textTer,
+        textTransform: 'uppercase', letterSpacing: 1,
+        marginBottom: semGastos ? 8 : 0,
+      }}>
+        Uso do dia
+      </div>
+
+      <div style={{ position: 'relative', paddingTop: semGastos ? 0 : 40 }}>
+
+        {/* Balloon estados 1 e 2 */}
+        {!semGastos && !passou && (
+          <div style={{
+            position: 'absolute', left: `${balloonLeft}%`, top: 0,
+            transform: 'translateX(-50%)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            zIndex: 5, pointerEvents: 'none',
+          }}>
+            <div style={{
+              background: balloonColor, color: '#fff',
+              fontSize: 11, fontWeight: 800,
+              padding: '4px 12px', borderRadius: 99,
+              whiteSpace: 'nowrap',
+              boxShadow: `0 3px 8px ${balloonColor}55`,
+            }}>
+              {fmt(gastosHoje)} gastos
+            </div>
+            <div style={{
+              width: 0, height: 0,
+              borderLeft: '6px solid transparent',
+              borderRight: '6px solid transparent',
+              borderTop: `8px solid ${balloonColor}`,
+            }} />
+          </div>
+        )}
+
+        {/* Balloon estado 3 — Passou, ancorado na esquerda */}
+        {passou && (
+          <div style={{
+            position: 'absolute', left: 0, top: 0,
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+            zIndex: 5, pointerEvents: 'none',
+          }}>
+            <div style={{
+              background: T.red, color: '#fff',
+              fontSize: 11, fontWeight: 800,
+              padding: '4px 12px', borderRadius: 99,
+              whiteSpace: 'nowrap',
+              boxShadow: `0 3px 8px ${T.red}55`,
+            }}>
+              {fmt(gastosHoje)} gastos
+            </div>
+            <div style={{
+              width: 0, height: 0,
+              borderLeft: '6px solid transparent',
+              borderRight: '6px solid transparent',
+              borderTop: `8px solid ${T.red}`,
+              marginLeft: 14,
+            }} />
+          </div>
+        )}
+
+        {/* Barra */}
+        <div style={{ position: 'relative', height: 20, borderRadius: 999, overflow: 'hidden' }}>
+          {passou ? (
+            <div style={{ position: 'absolute', inset: 0, background: '#FECDD3' }} />
+          ) : (
+            <>
+              {/* Fundo cinza (zona consumida, cresce da direita) */}
+              <div style={{ position: 'absolute', inset: 0, background: '#E2E8F0' }} />
+              {/* Margem restante (amarelo) — esquerda */}
+              {accBufferStart > 0 && (
+                <div style={{
+                  position: 'absolute', left: 0, top: 0, bottom: 0,
+                  width: `${emMargem ? remainingPct : buffZonePct}%`,
+                  background: T.yellow,
+                }} />
+              )}
+              {/* Cota restante (azul) — após a zona de margem */}
+              {!emMargem && cotaRestante > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  left: `${buffZonePct}%`, top: 0, bottom: 0,
+                  width: `${(cotaRestante / totalCapacity) * 100}%`,
+                  background: T.blue,
+                }} />
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Delimitador margem/cota (overlay, acima do overflow:hidden) */}
+        {accBufferStart > 0 && (
+          <div style={{
+            position: 'absolute',
+            top: semGastos ? 0 : 40,
+            left: 0, right: 0, height: 20,
+            pointerEvents: 'none', zIndex: 3,
+          }}>
+            <div style={{
+              position: 'absolute',
+              left: `${buffZonePct}%`, top: -2, bottom: -2,
+              width: 2.5,
+              background: passou
+                ? 'rgba(255,255,255,0.6)'
+                : emMargem
+                ? 'rgba(255,255,255,0.4)'
+                : 'white',
+              transform: 'translateX(-50%)',
+              borderRadius: 2,
+            }} />
+          </div>
+        )}
+
+        {/* Ticks */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: passou ? '1fr 1fr 1fr' : '1fr 1fr',
+          marginTop: 12,
+          gap: 4,
+        }}>
+          {passou ? (
+            <>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: T.red }}>{fmt(excedente)}</div>
+                <div style={{ fontSize: 9, color: T.red, fontWeight: 600, marginTop: 1 }}>excedente</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: T.textTer }}>{fmt(0)}</div>
+                <div style={{ fontSize: 9, color: T.textTer, marginTop: 1 }}>restam da margem</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: T.textTer }}>{fmt(0)}</div>
+                <div style={{ fontSize: 9, color: T.textTer, marginTop: 1 }}>restam da cota</div>
+              </div>
+            </>
+          ) : (
+            <>
+              {accBufferStart > 0 && (
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: T.yellow }}>{fmt(margRestante)}</div>
+                  <div style={{ fontSize: 9, color: T.textTer, marginTop: 1 }}>restam da margem</div>
+                </div>
+              )}
+              <div style={{ textAlign: accBufferStart > 0 ? 'right' : 'left' }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: cotaRestante > 0 ? T.blue : T.textTer }}>{fmt(cotaRestante)}</div>
+                <div style={{ fontSize: 9, color: T.textTer, marginTop: 1 }}>restam da cota</div>
+              </div>
+            </>
+          )}
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════
 // TELA 2 — Painel principal  (v4 — hierarquia reestruturada)
 // ═══════════════════════════════════════════════════════════════
@@ -1562,15 +1821,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
   const cardColor  = isPositive ? T.green : T.red;
   const cardSub    = isPositive ? '#3D8A60' : '#9B4A55';
   const statusObj = getStatusDiario(stats, { gastosHoje, ratioMargem });
-  const PILL_LABELS = {
-    'Ciclo acima do planejado': 'Passou',
-    'Saiu do plano': 'Passou',
-    'Passou da cota hoje ⚡': 'Apertado',
-    'Hoje está apertado 👀': 'Apertado',
-    'Você está no plano ✅': 'No plano',
-    'Você está com folga 🌿': 'Com folga',
-  };
-  const statusLabel = PILL_LABELS[statusObj.titulo] || 'No plano';
+  const statusLabel = state.transacoes.length === 0 ? 'Hoje' : (statusObj.pill || 'No plano');
   const statusColor = { vermelho: T.red, amarelo: T.yellow, azul: T.blue, verde: T.green }[statusObj.nivel] || T.blue;
 
   const pct          = Math.min(orcamentoUsadoPct, 100);
@@ -1621,7 +1872,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
       </div>
 
       {/* ── Banner ciclo expirado ─────────────────────────────── */}
-      {stats.diasRestantes <= 0 && (
+      {stats.cicloEncerrado && (
         <button onClick={onFechamento} style={{
           width: '100%', margin: '16px 0 0', borderRadius: T.r16, padding: '14px 16px',
           background: 'linear-gradient(135deg, #163B75, #2F6FED)',
@@ -1642,15 +1893,8 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
         const base        = stats.valorDiarioBase;
         const avail       = margemAteHoje; // disponivelHoje = saldo vivo do ciclo
         const isNeg       = avail < 0;
-        const noTx        = state.transacoes.length === 0;
-
-        const totalCapacity  = base + accBufferStart;
-        // Margem que sobra depois de descontar o excesso de hoje
-        const todayOverflow       = Math.max(0, gastosHoje - base);
-        const remainingPlanMargin = Math.max(0, accBufferStart - todayOverflow);
-        const quotaZonePct = totalCapacity > 0 ? (base / totalCapacity) * 100 : 100;
-        const buffZonePct  = 100 - quotaZonePct;
-        const spendPct     = totalCapacity > 0 ? Math.min((gastosHoje / totalCapacity) * 100, 100) : 0;
+        const noTx           = state.transacoes.length === 0;
+        const cotaDiaExcedida = !isNeg && gastosHoje > base;
 
         // heroColor = statusColor (alinha hero, barra e gauge no mesmo código de cores)
         const heroColor = statusColor;
@@ -1687,7 +1931,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
           {/* Hero: disponível hoje */}
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: T.textTer, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 2 }}>
-              {isNeg ? 'saiu do plano em' : noTx ? 'sua cota de hoje' : 'disponível hoje'}
+              {isNeg ? 'Fora do previsto' : noTx ? 'Sua cota de hoje' : cotaDiaExcedida ? 'Disponível no plano' : 'Disponível hoje'}
             </div>
             <div key={flashId} className={flashType ? 'num-pop' : undefined}
               style={{ fontSize: 48, fontWeight: 800, color: noTx ? '#0F172A' : heroColor, lineHeight: '54px', letterSpacing: -1.5, transition: 'color 0.3s' }}>
@@ -1696,67 +1940,21 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
 
             {/* Microcopy contextual */}
             <div style={{ fontSize: 13, fontWeight: 500, color: statusColor === T.blue ? T.textSec : statusColor, marginTop: 4 }}>
-              {noTx ? '✏️ Registre seu primeiro gasto do dia' : statusObj.frase}
+              {noTx ? 'Registre seu primeiro gasto para acompanhar o dia.' : statusObj.frase}
             </div>
 
           </div>
 
-          {/* Barra de duas zonas proporcionais (cota → acumulado) */}
-          {!isNeg ? (
-            <div style={{ marginBottom: 14 }}>
-              {/* Barra estilo bateria — fundo cinza (cota mais claro, acumulado mais escuro) + fill na cor do status */}
-              <div style={{ position: 'relative', height: 14, borderRadius: 999, overflow: 'hidden', background: '#E2E8F0' }}>
-                {buffZonePct > 2 && (
-                  <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${buffZonePct}%`, background: '#CBD5E1' }} />
-                )}
-                {gastosHoje > 0 && (
-                  <div style={{
-                    position: 'absolute', left: 0, top: 0, bottom: 0,
-                    width: `${spendPct}%`, background: heroColor, borderRadius: 999,
-                    transition: 'width 0.5s cubic-bezier(.2,.8,.3,1), background 0.3s',
-                  }} />
-                )}
-                {buffZonePct > 4 && (
-                  <div style={{ position: 'absolute', left: `${quotaZonePct}%`, top: 0, bottom: 0, width: 2, background: 'rgba(255,255,255,0.85)', transform: 'translateX(-50%)', zIndex: 2 }} />
-                )}
-              </div>
-
-              {/* Texto de apoio abaixo da barra */}
-              <div style={{ fontSize: 11, color: T.textSec, marginTop: 7, lineHeight: 1.4 }}>
-                {noTx
-                  ? `Cota de hoje: ${fmt(base)}`
-                  : accBufferStart > 1
-                  ? (() => {
-                      const quotaLeft = Math.max(0, base - gastosHoje);
-                      const bufferLabel = extrasTotal > 1 && poupado > 1
-                        ? 'poupado e entradas'
-                        : extrasTotal > 1
-                        ? 'de entradas extras'
-                        : 'de dias anteriores';
-                      if (quotaLeft > 0) {
-                        return <>{fmt(quotaLeft)} <span style={{ opacity: 0.6 }}>da cota</span> · {fmt(accBufferStart)} <span style={{ opacity: 0.6 }}>{bufferLabel}</span></>;
-                      }
-                      return <>{fmt(accBufferStart)} <span style={{ opacity: 0.6 }}>{bufferLabel}</span></>;
-                    })()
-                  : gastosHoje > 0
-                  ? <>{fmt(Math.max(0, base - gastosHoje))} <span style={{ opacity: 0.6 }}>restam da cota de hoje</span></>
-                  : null
-                }
-              </div>
-            </div>
-          ) : (
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ height: 14, borderRadius: 999, background: T.red, opacity: 0.75 }} />
-              <div style={{ fontSize: 11, fontWeight: 600, color: T.red, marginTop: 6 }}>
-                {stats.diasRestantes > 0 ? `${stats.diasRestantes} dias restantes para recuperar` : 'Ciclo encerrado acima do plano'}
-              </div>
-            </div>
-          )}
+          <UsoDoDiaBar
+            base={base}
+            accBufferStart={accBufferStart}
+            gastosHoje={gastosHoje}
+          />
 
           {/* Divisor */}
           <div style={{ height: 1, background: 'rgba(15,23,42,0.06)', marginBottom: 14 }} />
 
-          <SpendingGauge ratioMargem={ratioMargem} flashColor={flashColor} />
+          <SpendingGauge stats={stats} flashColor={flashColor} />
 
           {!noTx && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
@@ -2774,7 +2972,7 @@ function DialogReiniciar({ onConfirmar, onCancelar, saldoRestante }) {
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
               boxShadow: saldoPos ? `0 8px 20px rgba(7,128,61,0.28)` : `0 8px 20px rgba(216,36,50,0.28)`,
             }}>
-              <span>{saldoPos ? `Levar ${fmt(saldoRestante)} para o próximo mês` : `Assumir dívida de ${fmt(Math.abs(saldoRestante))}`}</span>
+              <span>{saldoPos ? `Levar ${fmt(saldoRestante)} para o próximo ciclo` : `Assumir dívida de ${fmt(Math.abs(saldoRestante))}`}</span>
               <span style={{ fontSize: 11, opacity: 0.8, fontWeight: 500 }}>
                 {saldoPos ? 'Saldo será adicionado ao novo ciclo' : 'Débito será descontado do novo ciclo'}
               </span>
@@ -3071,7 +3269,9 @@ function agendarLembrete(horaStr) {
   const [h, m] = hora.split(':').map(Number);
   const alvo = new Date(); alvo.setHours(h, m, 0, 0);
   const delay = alvo - new Date();
-  if (delay <= 0) return;
+  if (delay <= 0) {
+    alvo.setDate(alvo.getDate() + 1); // amanhã no mesmo horário
+  }
   setTimeout(() => {
     saveNotifConfig({ ...getNotifConfig(), ultimoLembrete: new Date().toISOString().split('T')[0] });
     const title = 'Hoje Dá 💰';
@@ -3081,7 +3281,7 @@ function agendarLembrete(horaStr) {
     } else {
       try { new Notification(title, { body, icon: '/icons/icon-192.png' }); } catch {}
     }
-  }, delay);
+  }, alvo - new Date());
 }
 
 async function ativarNotificacoes(horaStr) {
@@ -3459,7 +3659,7 @@ function App() {
       case TELAS.extra:     return <TelaEntrada tipo="extra"  minDate={state.dataInicio ? fmtDateKey(new Date(state.dataInicio).toISOString()) : null} onSalvar={v => handleEntrada('extra', v)}  onVoltar={(tipo) => { if (tipo) triggerFlash(tipo); setTela(TELAS.painel); }} />;
       case TELAS.historico: return <TelaHistorico transacoes={state.transacoes} ciclosAnteriores={state.ciclosAnteriores || []} onExcluir={handleExcluir} onEditar={handleEditar} onVoltar={() => setTela(TELAS.painel)} />;
       case TELAS.analise:    return <TelaAnalise state={state} onVoltar={() => setTela(TELAS.painel)} />;
-      case TELAS.editar:    return <TelaEntrada tipo={editandoItem?.tipo || 'gasto'} initialData={editandoItem} onSalvar={handleSalvarEdicao} onVoltar={(tipo) => { if (tipo) triggerFlash(tipo); setEditandoItem(null); setTela(editReturnTela); }} />;
+      case TELAS.editar:    return <TelaEntrada tipo={editandoItem?.tipo || 'gasto'} initialData={editandoItem} minDate={state.dataInicio ? fmtDateKey(new Date(state.dataInicio).toISOString()) : null} onSalvar={handleSalvarEdicao} onVoltar={(tipo) => { if (tipo) triggerFlash(tipo); setEditandoItem(null); setTela(editReturnTela); }} />;
       default: return null;
     }
   };
