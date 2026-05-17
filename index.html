@@ -1761,11 +1761,14 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
           {!noTx && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
               <button onClick={() => setShowBreakdown(true)} aria-label="Ver como o valor disponível foi calculado" style={{
-                background: 'none', border: 'none', padding: '4px 0',
-                cursor: 'pointer', fontSize: 11, fontWeight: 700,
-                color: T.blue, fontFamily: T.font,
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: T.blueLight, border: `1.5px solid ${T.blue}33`,
+                borderRadius: 99, padding: '8px 16px',
+                cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                color: T.blue, fontFamily: T.font, minHeight: 44,
               }}>
-                Ver cálculo →
+                <span style={{ fontSize: 14 }}>🧮</span>
+                Como chegamos aqui?
               </button>
             </div>
           )}
