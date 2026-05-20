@@ -3143,20 +3143,39 @@ function OnboardingScreen({ onComecar }) {
         position: 'relative', overflow: 'hidden', flexShrink: 0,
       }}>
         <div style={{ position: 'absolute', width: 200, height: 200, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.07)', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none' }} />
-        <div style={{
-          width: 116, height: 116, borderRadius: 32,
-          background: 'rgba(255,255,255,0.12)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          border: '1.5px solid rgba(255,255,255,0.25)',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.28)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          marginBottom: 12,
-        }}>
-          <img src="/icons/icon-512.png" width="100" height="100" alt="Hoje Dá" style={{ borderRadius: 26 }} />
+        <div style={{ position: 'relative', marginBottom: 14 }}>
+          <div style={{
+            width: 136, height: 136, borderRadius: 36,
+            background: 'rgba(255,255,255,0.12)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: '1.5px solid rgba(255,255,255,0.25)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.28)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <img src="/icons/icon-512.png" width="116" height="116" alt="Hoje Dá" style={{ borderRadius: 30 }} />
+          </div>
+          <div style={{
+            position: 'absolute', bottom: -6, right: -6,
+            background: '#E8B63E', color: '#6B3F00',
+            fontSize: 10, fontWeight: 800,
+            padding: '3px 8px', borderRadius: 20,
+            letterSpacing: '0.8px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+            border: '2px solid rgba(255,255,255,0.95)',
+            whiteSpace: 'nowrap',
+          }}>BETA</div>
         </div>
         <div style={{ fontSize: 24, fontWeight: 800, color: '#fff', letterSpacing: -0.5, marginBottom: 4 }}>Hoje Dá</div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', letterSpacing: 0.1 }}>Clareza. Controle. Liberdade.</div>
+        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', letterSpacing: 0.1, marginBottom: 12 }}>Clareza. Controle. Liberdade.</div>
+        <div style={{
+          background: 'rgba(255,255,255,0.11)',
+          color: 'rgba(255,255,255,0.82)',
+          fontSize: 10, fontWeight: 700,
+          padding: '5px 14px', borderRadius: 20,
+          letterSpacing: '1.1px',
+          border: '1px solid rgba(255,255,255,0.22)',
+        }}>✦ ACESSO BETA FECHADO ✦</div>
       </div>
 
       {/* ── Conteúdo ── */}
