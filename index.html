@@ -16,6 +16,17 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
 <link rel="icon" href="/icons/icon-512.png" type="image/png" />
 <link rel="manifest" href="/manifest.json" />
+<script>
+  // Recarrega automaticamente quando um novo service worker assume o controle
+  if ('serviceWorker' in navigator) {
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+  }
+</script>
 <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
@@ -3139,11 +3150,11 @@ function OnboardingScreen({ onComecar }) {
         background: 'linear-gradient(155deg, #3D7FF5 0%, #2362DB 55%, #163B75 100%)',
         borderRadius: '0 0 24px 24px',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        padding: '28px 24px 20px',
+        padding: '14px 24px 12px',
         position: 'relative', overflow: 'hidden', flexShrink: 0,
       }}>
         <div style={{ position: 'absolute', width: 200, height: 200, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.07)', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'relative', marginBottom: 14 }}>
+        <div style={{ position: 'relative', marginBottom: 8 }}>
           <div style={{
             width: 136, height: 136, borderRadius: 36,
             background: 'rgba(255,255,255,0.12)',
@@ -3167,7 +3178,7 @@ function OnboardingScreen({ onComecar }) {
           }}>BETA</div>
         </div>
         <div style={{ fontSize: 24, fontWeight: 800, color: '#fff', letterSpacing: -0.5, marginBottom: 4 }}>Hoje Dá</div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', letterSpacing: 0.1, marginBottom: 12 }}>Clareza. Controle. Liberdade.</div>
+        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', letterSpacing: 0.1, marginBottom: 8 }}>Clareza. Controle. Liberdade.</div>
         <div style={{
           background: 'rgba(255,255,255,0.11)',
           color: 'rgba(255,255,255,0.82)',
