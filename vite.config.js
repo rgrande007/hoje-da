@@ -39,6 +39,22 @@ export default defineConfig({
             purpose: 'maskable',
           },
         ],
+        shortcuts: [
+          {
+            name: 'Registrar gasto',
+            short_name: 'Gastei!',
+            description: 'Anotar um gasto rapidamente',
+            url: '/?action=gasto',
+            icons: [{ src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+          },
+          {
+            name: 'Registrar entrada',
+            short_name: 'Recebi',
+            description: 'Anotar uma entrada de dinheiro',
+            url: '/?action=entrada',
+            icons: [{ src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+          },
+        ],
       },
     }),
   ],
