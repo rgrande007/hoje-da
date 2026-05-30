@@ -100,6 +100,16 @@ const T = {
 const fmt = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 const fmtDate    = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 const fmtDateKey = d => { const dt = new Date(d); return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`; };
+function fmtDateLabel(dateStr) {
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const ontem = new Date(hoje); ontem.setDate(ontem.getDate() - 1);
+  const d = new Date(dateStr); d.setHours(0,0,0,0);
+  if (d.getTime() === hoje.getTime()) return 'Hoje';
+  if (d.getTime() === ontem.getTime()) return 'Ontem';
+  const diff = (hoje.getTime() - d.getTime()) / 86400000;
+  if (diff < 7) return d.toLocaleDateString('pt-BR', { weekday: 'long' }).replace(/^\w/, c => c.toUpperCase());
+  return fmtDate(dateStr);
+}
 const fmtTime    = d => new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
 function useIsMobile() {
@@ -473,7 +483,7 @@ function ScreenHeader({ title, onBack, right }) {
       {onBack && (
         <button onClick={onBack} style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          width: 38, height: 38, borderRadius: 12,
+          width: 44, height: 44, borderRadius: 14,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           marginLeft: -8, flexShrink: 0,
         }}>
@@ -862,7 +872,7 @@ function TelaConfig({ onIniciar, saldoAnterior = 0, onCancelar = null, initialCo
         {/* Quick-select chips — linha 1: ciclos mensais */}
         {[
           [
-            { label: 'Este mês', action: () => { const h = new Date(); setDataInicio(fmtDateKey(new Date(h.getFullYear(), h.getMonth(), 1).toISOString())); setDataFim(fmtDateKey(new Date(h.getFullYear(), h.getMonth() + 1, 0).toISOString())); } },
+            { label: 'Até fim do mês', action: () => { const h = new Date(); setDataInicio(fmtDateKey(h.toISOString())); setDataFim(fmtDateKey(new Date(h.getFullYear(), h.getMonth() + 1, 0).toISOString())); } },
             { label: 'Próx. 30d', action: () => { const h = new Date(); const f = new Date(h); f.setDate(f.getDate() + 29); setDataInicio(fmtDateKey(h.toISOString())); setDataFim(fmtDateKey(f.toISOString())); } },
             { label: 'Próx. mês', action: () => { const h = new Date(); setDataInicio(fmtDateKey(new Date(h.getFullYear(), h.getMonth() + 1, 1).toISOString())); setDataFim(fmtDateKey(new Date(h.getFullYear(), h.getMonth() + 2, 0).toISOString())); } },
           ],
@@ -953,7 +963,7 @@ function TelaConfig({ onIniciar, saldoAnterior = 0, onCancelar = null, initialCo
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         }}
       >
-        <span>Continuar</span>
+        <span>{initialConfig ? 'Salvar alterações' : 'Iniciar ciclo'}</span>
         {podeIniciar && (
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M5 12h14M12 5l7 7-7 7"/>
@@ -1648,7 +1658,7 @@ function UsoDoDiaBar({ base, accBufferStart, gastosHoje }) {
       </div>
       {semGastos && (
         <div style={{ fontSize: 11, color: T.textTer, marginBottom: 6, fontWeight: 500 }}>
-          Nenhum gasto registrado ainda
+          Sem gastos hoje ainda
         </div>
       )}
 
@@ -1916,8 +1926,8 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
         }}>
           <span style={{ fontSize: 24, flexShrink: 0 }}>🏆</span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>Seu ciclo encerrou!</div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>Ver resumo e iniciar próximo ciclo →</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>Ciclo encerrado!</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>Ver resumo e iniciar o próximo →</div>
           </div>
         </button>
       )}
@@ -2002,11 +2012,11 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
           {/* Como chegamos aqui — link discreto à direita */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
             <button onClick={() => setShowBreakdown(true)} aria-label="Ver como o valor foi calculado" style={{
-              background: 'none', border: 'none', borderRadius: 0,
-              padding: '4px 0', cursor: 'pointer', fontSize: 11, fontWeight: 500,
-              color: '#94A3B8', fontFamily: T.font,
+              background: 'none', border: 'none', borderRadius: 8,
+              padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+              color: T.blue, fontFamily: T.font, opacity: 0.7,
             }}>
-              Como chegamos aqui?
+              Como chegamos aqui? →
             </button>
           </div>
         </div>
@@ -2116,7 +2126,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
               background: T.bgAlt, border: T.border,
             }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: T.textSec }}>
-                Ainda cedo para projetar. Registre gastos por mais alguns dias.
+                Com mais alguns dias de dados, o app vai projetar como o ciclo vai fechar.
               </span>
             </div>
           )}
@@ -2130,10 +2140,10 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
           background: T.card, borderRadius: 24,
           border: T.border, boxShadow: '0 4px 16px rgba(15,23,42,0.05)',
         }}>
-          <div style={{ fontSize: 48, marginBottom: 10 }}>✍️</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 6 }}>Nenhum movimento ainda</div>
+          <div style={{ fontSize: 48, marginBottom: 10 }}>👋</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 6 }}>Sem movimentos ainda</div>
           <div style={{ fontSize: 13, color: T.textSec, lineHeight: 1.6 }}>
-            Use os botões acima para registrar<br />seu primeiro gasto ou entrada.
+            Toque em <strong>Gastei!</strong> ou <strong>Recebi</strong> para<br />registrar o primeiro movimento do dia.
           </div>
         </div>
       )}
@@ -2183,7 +2193,6 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
                           <span style={{ fontSize: 15, fontWeight: 700, color: isGasto ? T.red : T.green }}>
                             {isGasto ? '−' : '+'}{fmt(t.valor)}
                           </span>
-                          <div style={{ fontSize: 10, color: T.textTer, marginTop: 1 }}>editar</div>
                         </div>
                         {onExcluir && (
                           <button
@@ -2276,7 +2285,7 @@ function TelaEntrada({ tipo, onSalvar, onVoltar, initialData = null, minDate = n
           borderBottom: `1px solid ${T.yellow}44`,
         }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: '#7A5A00', flex: 1 }}>
-            Descartar as alterações?
+            {isEdit ? 'Descartar as alterações?' : 'Sair sem salvar?'}
           </span>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
             <button type="button" onClick={() => setConfirmSaida(false)} style={{
@@ -2299,6 +2308,11 @@ function TelaEntrada({ tipo, onSalvar, onVoltar, initialData = null, minDate = n
           <span style={{ background: bgCor, color: cor, fontSize: 13, fontWeight: 700, padding: '6px 18px', borderRadius: 100 }}>
             {isGasto ? `${selectedCat.emoji} ${selectedCat.label}` : `${selectedIncomeCat.emoji} ${selectedIncomeCat.label}`}
           </span>
+          {!isGasto && !isEdit && (
+            <div style={{ fontSize: 11, color: T.textTer, marginTop: 6, fontWeight: 500 }}>
+              Entrada extra durante o ciclo — amplia seu saldo disponível
+            </div>
+          )}
         </div>
 
         {/* Teclado */}
@@ -2361,7 +2375,7 @@ function TelaEntrada({ tipo, onSalvar, onVoltar, initialData = null, minDate = n
             <input
               value={desc}
               onChange={e => setDesc(e.target.value)}
-              placeholder={isGasto ? 'Adicione uma descrição...' : 'De onde veio esse dinheiro?'}
+              placeholder={isGasto ? 'O que foi? (opcional)' : 'De onde veio? (opcional)'}
               maxLength={40}
               style={{
                 flex: 1, background: 'none', border: 'none', outline: 'none',
@@ -2396,8 +2410,8 @@ function TelaEntrada({ tipo, onSalvar, onVoltar, initialData = null, minDate = n
           <button onClick={salvar} disabled={saved || !valor || valor <= 0} style={{
             width: '100%', height: 60, borderRadius: 18, border: 'none',
             cursor: valor > 0 ? 'pointer' : 'default',
-            background: saved ? T.green : ((!valor || valor <= 0) ? '#E2ECFF' : cor),
-            color: (!valor || valor <= 0) ? '#93C5FD' : '#fff',
+            background: saved ? T.green : ((!valor || valor <= 0) ? '#F1F5F9' : cor),
+            color: (!valor || valor <= 0) ? '#94A3B8' : '#fff',
             fontSize: 17, fontWeight: 800, fontFamily: T.font,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             boxShadow: (valor > 0 && !saved) ? `0 8px 20px ${cor}44` : 'none',
@@ -2535,7 +2549,7 @@ function TelaHistorico({ transacoes, ciclosAnteriores = [], onExcluir, onEditar,
 
       {Object.entries(grupos).sort(([a], [b]) => b.localeCompare(a)).map(([key, items]) => (
         <div key={key} style={{ padding: '14px 16px 0' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: T.textTer, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>{fmtDate(items[0].data)}</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.textTer, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>{fmtDateLabel(items[0].data)}</div>
           <Card>
             {items.map((t, i) => {
               const isGasto = t.tipo === 'gasto';
@@ -2668,6 +2682,7 @@ function TelaHistorico({ transacoes, ciclosAnteriores = [], onExcluir, onEditar,
 // ═══════════════════════════════════════════════════════════════
 function TelaAnalise({ state, onVoltar }) {
   const stats = React.useMemo(() => calcStats(state), [state]);
+  const [catExpandida, setCatExpandida] = React.useState(null);
   const hoje = new Date();
   const inicioDate = new Date(state.dataInicio);
 
@@ -2775,15 +2790,7 @@ function TelaAnalise({ state, onVoltar }) {
       {/* ── Resumo rápido ─────────────────────────────────────── */}
       {(() => {
         const semDados = stats.diaAtual < 3 || stats.totalGastos === 0;
-        if (semDados) {
-          return (
-            <div style={{ margin: '10px 16px 0', padding: '14px 16px', background: T.card, borderRadius: T.r14, border: T.border, boxShadow: T.shadow }}>
-              <div style={{ fontSize: 13, color: T.textSec, fontWeight: 500, textAlign: 'center', lineHeight: 1.5 }}>
-                📊 Registre gastos por pelo menos 3 dias para ver sua média e comparação com a cota diária.
-              </div>
-            </div>
-          );
-        }
+        if (semDados) return null;
         const diff = stats.valorDiarioBase - stats.mediaGastoPorDia;
         const diffPositivo = stats.mediaGastoPorDia <= stats.valorDiarioBase;
         const cards = [
@@ -2942,7 +2949,6 @@ function TelaAnalise({ state, onVoltar }) {
         if (catItems.length === 0) return null;
         const maxCat = catItems[0].total;
         const totalCat = catItems.reduce((s, c) => s + c.total, 0);
-        const [catExpandida, setCatExpandida] = React.useState(null);
         return (
           <div style={{ margin: '12px 16px 0' }}>
             <Card>
@@ -3011,7 +3017,7 @@ function TelaAnalise({ state, onVoltar }) {
               Próximos {diasParaProjetar === 0 ? '' : diasParaProjetar === 7 ? '7 ' : `${diasParaProjetar} `}dias
             </div>
             <div style={{ fontSize: 13, color: T.textSec, marginBottom: diasParaProjetar > 0 ? 16 : 8, fontWeight: 500 }}>
-              Projeção se manter o ritmo atual
+              Margem acumulada prevista se manter o ritmo atual
             </div>
             {diasParaProjetar === 0 && (
               <div style={{ textAlign: 'center', padding: '12px 0', fontSize: 13, color: T.textSec, fontWeight: 500 }}>
@@ -3034,7 +3040,7 @@ function TelaAnalise({ state, onVoltar }) {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: T.textSec }}>Saldo previsto</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: T.textSec }}>Margem prevista</span>
                         <span style={{ fontSize: 13, fontWeight: 800, color: dCor }}>{fmt(d.projecao)}</span>
                       </div>
                       <div style={{ height: 5, background: T.bg, borderRadius: 100, overflow: 'hidden' }}>
@@ -3137,9 +3143,9 @@ function DialogReiniciar({ onConfirmar, onCancelar, saldoRestante }) {
 
 function OnboardingScreen({ onComecar }) {
   const steps = [
-    { num: 1, title: 'Defina o valor do ciclo', desc: 'Período entre pagamentos — o que sobra depois de pagar suas contas fixas.', icon: '💼' },
-    { num: 2, title: 'Registre gastos e entradas', desc: 'Anote o que saiu e entrou. O que economizou nos dias anteriores fica guardado.', icon: '📝' },
-    { num: 3, title: 'O app te diz se dá', desc: 'Veja quanto pode gastar hoje e se o ciclo vai fechar no positivo.', icon: null },
+    { num: 1, title: 'Defina o valor do ciclo', desc: 'O que sobra depois de pagar contas fixas. Dividido pelos dias, vira sua cota diária.', icon: '💼' },
+    { num: 2, title: 'Registre gastos e entradas', desc: 'Anote o que saiu e o que entrou. A economia dos dias anteriores fica guardada como folga.', icon: '📝' },
+    { num: 3, title: 'O app te diz se dá', desc: 'Veja de imediato se está com folga, no plano, apertado ou se passou — sem precisar calcular.', icon: null },
   ];
 
   return (
@@ -3804,7 +3810,7 @@ function App() {
                         </div>
                       </button>
                     ))}
-                    <button onClick={() => setShowMenu(false)} style={{ width: '100%', height: 44, borderRadius: T.r14, border: 'none', background: 'none', cursor: 'pointer', color: T.textSec, fontSize: 14, fontWeight: 600, fontFamily: T.font }}>Cancelar</button>
+                    <button onClick={() => setShowMenu(false)} aria-label="Fechar menu" style={{ width: '100%', height: 44, borderRadius: T.r14, border: 'none', background: 'none', cursor: 'pointer', color: T.textSec, fontSize: 14, fontWeight: 600, fontFamily: T.font }}>Fechar</button>
                   </div>
                 </div>
               )}
