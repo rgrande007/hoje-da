@@ -11,6 +11,11 @@
 - `npm run dev` — servidor local (porta 5173)
 - `npm run build` — build de produção em `dist/`
 - `npm run preview` — preview do build
+- `npm test` — testes de regressão em `tests/`. Eles extraem as funções puras do próprio `index.html` (via `tests/extrair.js`) e rodam no fuso de Brasília. O `test-scenarios.js` antigo testa uma *cópia* do `calcStats`.
+
+## Datas (cuidado com fuso)
+- Data "de hoje" sempre com `fmtDateKey(new Date())`, nunca `toISOString().split('T')[0]` (em UTC, depois das 21h já é amanhã). Um teste barra isso.
+- Lançamentos usam `dataLancamentoISO`: hoje = horário real; outro dia = meio-dia local (`temHoraReal` esconde esse "12:00").
 
 ## Arquitetura
 Todo o código do app está em `index.html` dentro de um único `<script type="text/babel">`.
