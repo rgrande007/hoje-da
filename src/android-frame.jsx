@@ -1,4 +1,3 @@
-
 // Android.jsx — Simplified Android (Material 3) device frame
 // Status bar + top app bar + content + gesture nav + keyboard.
 // Based on Figma M3 spec. No dependencies, no image assets.
@@ -209,6 +208,6 @@ function AndroidKeyboard() {
   );
 }
 
-Object.assign(window, {
+export {
   AndroidDevice, AndroidStatusBar, AndroidAppBar, AndroidListItem, AndroidNavBar, AndroidKeyboard,
-});
+};

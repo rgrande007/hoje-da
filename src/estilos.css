@@ -1,0 +1,56 @@
+/* Estilos globais (antes ficavam dentro do index.html) */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow-x: hidden; max-width: 100%; }
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: #0f0f14;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh;
+}
+#root { width: 100%; display: flex; flex-direction: column; }
+@media (max-width: 500px) {
+  body { display: block; background: #F6F8FB; }
+  #root { min-height: 100dvh; }
+}
+::-webkit-scrollbar { width: 0; height: 0; }
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; }
+input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+@keyframes slideUp   { from { opacity:0; transform:translateY(16px);  } to { opacity:1; transform:translateY(0);  } }
+@keyframes slideDown { from { opacity:0; transform:translateY(-8px);  } to { opacity:1; transform:translateY(0);  } }
+@keyframes fadeIn    { from { opacity:0; } to { opacity:1; } }
+@keyframes popIn     { from { opacity:0; transform:scale(0.92); } to { opacity:1; transform:scale(1); } }
+@keyframes shimmer   { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+.screen-enter { animation: slideUp 0.28s cubic-bezier(.2,.8,.3,1) both; }
+.screen-back  { animation: slideDown 0.22s cubic-bezier(.2,.8,.3,1) both; }
+.pop-in       { animation: popIn 0.2s cubic-bezier(.2,.8,.3,1) both; }
+.fade-in      { animation: fadeIn 0.18s ease both; }
+button:active { transform: scale(0.97); transition: transform 0.08s; }
+@keyframes numPop { 0%,100% { transform: scale(1); } 35% { transform: scale(1.05); } }
+.num-pop { animation: numPop 0.65s cubic-bezier(.2,.8,.3,1) both; }
+@keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 40%{transform:translateX(5px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(3px)} }
+.shake { animation: shake 0.35s cubic-bezier(.36,.07,.19,.97) both; }
+@media (max-width: 500px) {
+  body { padding-top: env(safe-area-inset-top); }
+}
+.boot {
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  font-family: 'DM Sans', system-ui, sans-serif; font-size: 20px; font-weight: 800; color: #0F172A;
+  animation: fadeIn 0.3s ease 0.15s both;
+}
+.boot img { border-radius: 18px; box-shadow: 0 8px 24px rgba(15,23,42,0.12); }
+@media (min-width: 501px) { .boot { color: #F6F8FB; } }
+
+/* Foco visível para quem navega por teclado (o toque não mostra o contorno) */
+:focus-visible { outline: 3px solid rgba(47, 111, 237, 0.55); outline-offset: 2px; border-radius: 12px; }
+
+/* Quem pediu menos movimento no sistema não vê animações */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

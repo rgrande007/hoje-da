@@ -1,13 +1,12 @@
 'use strict';
-// Carrega declarações de nível superior do <script type="text/babel"> do index.html
-// para que os testes rodem o código REAL do app (e não uma cópia).
+// Carrega declarações de nível superior de src/main.jsx para que os testes rodem
+// o código REAL do app (e não uma cópia).
 // Só funciona para declarações sem JSX (funções puras, constantes).
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const HTML = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const SCRIPT = HTML.slice(HTML.indexOf('<script type="text/babel">'));
+const SCRIPT = '\n' + fs.readFileSync(path.join(__dirname, '..', 'src', 'main.jsx'), 'utf8');
 
 const PARES = { '(': ')', '[': ']', '{': '}' };
 
@@ -111,4 +110,4 @@ function dateFixa(agoraISO) {
   };
 }
 
-module.exports = { HTML, SCRIPT, extrair, carregar, criarLocalStorage, dateFixa };
+module.exports = { SCRIPT, extrair, carregar, criarLocalStorage, dateFixa };

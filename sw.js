@@ -1,27 +1,27 @@
-const CACHE = 'hoje-da-v2';
-const CDN_CACHE = 'hoje-da-cdn-v1';
+// Nomes novos de cache fazem o "activate" apagar os antigos (que guardavam React/Babel do CDN).
+const CACHE = 'hoje-da-v3';
+const FONTS_CACHE = 'hoje-da-fonts-v1';
 
 const PRECACHE = [
   '/',
-  '/index.html',
-  '/android-frame.jsx',
-  '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
 ];
 
-const CDN_URLS = [
-  'https://unpkg.com/react@18.3.1/umd/react.production.min.js',
-  'https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js',
-  'https://unpkg.com/@babel/standalone@7.29.0/babel.min.js',
-];
-
+// Lista gerada no build pelo vite-plugin-pwa: index.html, JS/CSS com hash, manifest e ícones.
 const WB_MANIFEST = self.__WB_MANIFEST || [];
+
+// cache.addAll recusa a lista INTEIRA se um endereço aparece duas vezes ("/icons/x.png" e
+// "icons/x.png" são o mesmo arquivo) — e aí o service worker nunca instala. Por isso a lista
+// é deduplicada pelo endereço completo.
+const URLS_PRECACHE = [...new Set(
+  [...PRECACHE, ...WB_MANIFEST.map(e => e.url)].map(u => new URL(u, self.location.href).href)
+)];
 
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
-      .then(c => c.addAll([...PRECACHE, ...WB_MANIFEST.map(e => e.url)]))
+      .then(c => c.addAll(URLS_PRECACHE))
       .then(() => self.skipWaiting())
   );
 });
@@ -30,7 +30,7 @@ self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
-        keys.filter(k => k !== CACHE && k !== CDN_CACHE).map(k => caches.delete(k))
+        keys.filter(k => k !== CACHE && k !== FONTS_CACHE).map(k => caches.delete(k))
       ))
       .then(() => self.clients.claim())
   );
@@ -55,26 +55,10 @@ self.addEventListener('fetch', e => {
 
   const url = new URL(e.request.url);
 
-  // CDN resources: cache-first (serve sem rede quando possível)
-  if (CDN_URLS.includes(url.href)) {
-    e.respondWith(
-      caches.open(CDN_CACHE).then(cache =>
-        cache.match(e.request).then(cached => {
-          if (cached) return cached;
-          return fetch(e.request).then(res => {
-            if (res.ok) cache.put(e.request, res.clone());
-            return res;
-          }).catch(() => cached || new Response('Offline', { status: 503, statusText: 'Service Unavailable' }));
-        })
-      )
-    );
-    return;
-  }
-
   // Google Fonts: cache-first
   if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
     e.respondWith(
-      caches.open(CDN_CACHE).then(cache =>
+      caches.open(FONTS_CACHE).then(cache =>
         cache.match(e.request).then(cached => {
           if (cached) return cached;
           return fetch(e.request).then(res => {

@@ -1,6 +1,6 @@
 'use strict';
 // Testes de regressão dos bugs da auditoria de nov/2026.
-// Rodam o código REAL do index.html (ver tests/extrair.js).
+// Rodam o código REAL do app (src/main.jsx, via tests/extrair.js).
 // Executar: npm test
 process.env.TZ = 'America/Sao_Paulo';
 
@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const { SCRIPT, carregar, criarLocalStorage, dateFixa } = require('./extrair');
 
 const NOMES = ['T', 'SK', 'SK_LEGACY', 'fmt', 'fmtDateKey', 'novoId', 'parseValorBR', 'dataLancamentoISO', 'dataEditadaISO',
-  'temHoraReal', 'podeIniciarCiclo', 'sanitizeState', 'loadState', 'arquivarCiclo', 'calcStats'];
+  'temHoraReal', 'podeIniciarCiclo', 'DIAS_ENTRE_BACKUPS', 'deveLembrarBackup', 'sanitizeState', 'loadState', 'arquivarCiclo', 'calcStats'];
 
 function app(opts) {
   const a = carregar(NOMES, opts);
@@ -210,6 +210,49 @@ test('a tela de erro não apaga os dados sem confirmação', () => {
   const corpo = SCRIPT.slice(SCRIPT.indexOf('class ErrorBoundary'), SCRIPT.indexOf('function TabBar('));
   assert.ok(!/onClick=\{\(\) => \{ try \{ localStorage\.clear\(\)/.test(corpo), 'botão apaga tudo direto');
   assert.ok(/confirm\(/.test(corpo), 'sem confirmação antes de apagar');
+});
+
+// ─── Lembrete de backup (a cada 7 dias) ─────────────────────────────────────
+const DIA = 86400000;
+const AGORA = new Date('2026-11-20T10:00:00-03:00');
+const haDias = n => new Date(AGORA.getTime() - n * DIA).toISOString();
+const tx = dias => ({ id: 'x' + dias, tipo: 'gasto', valor: 10, data: haDias(dias) });
+
+test('lembrete de backup não aparece sem nenhum lançamento', () => {
+  const { deveLembrarBackup } = app();
+  exige(deveLembrarBackup, 'deveLembrarBackup');
+  assert.equal(deveLembrarBackup({ transacoes: [], ciclosAnteriores: [] }, {}, AGORA), false);
+});
+
+test('sem backup, lembra 7 dias depois do primeiro lançamento', () => {
+  const { deveLembrarBackup } = app();
+  exige(deveLembrarBackup, 'deveLembrarBackup');
+  assert.equal(deveLembrarBackup({ transacoes: [tx(3), tx(1)] }, {}, AGORA), false);
+  assert.equal(deveLembrarBackup({ transacoes: [tx(8), tx(1)] }, {}, AGORA), true);
+});
+
+test('com backup, lembra 7 dias depois do último backup', () => {
+  const { deveLembrarBackup } = app();
+  exige(deveLembrarBackup, 'deveLembrarBackup');
+  const estado = { transacoes: [tx(30)] };
+  assert.equal(deveLembrarBackup(estado, { ultimo: haDias(2) }, AGORA), false);
+  assert.equal(deveLembrarBackup(estado, { ultimo: haDias(7) }, AGORA), true);
+});
+
+test('"agora não" adia o lembrete', () => {
+  const { deveLembrarBackup } = app();
+  exige(deveLembrarBackup, 'deveLembrarBackup');
+  const estado = { transacoes: [tx(30)] };
+  const amanha = new Date(AGORA.getTime() + DIA).toISOString();
+  assert.equal(deveLembrarBackup(estado, { adiadoAte: amanha }, AGORA), false);
+  assert.equal(deveLembrarBackup(estado, { adiadoAte: haDias(1) }, AGORA), true);
+});
+
+test('lançamentos de ciclos anteriores contam para o lembrete', () => {
+  const { deveLembrarBackup } = app();
+  exige(deveLembrarBackup, 'deveLembrarBackup');
+  const estado = { transacoes: [], ciclosAnteriores: [{ transacoes: [tx(20)] }] };
+  assert.equal(deveLembrarBackup(estado, {}, AGORA), true);
 });
 
 // ─── Contagem de dias no horário de verão (fora do Brasil) ──────────────────

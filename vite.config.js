@@ -2,6 +2,9 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // JSX compilado no build (antes era traduzido no navegador pelo Babel).
+  // Runtime automático: os componentes não precisam de `import React` para usar JSX.
+  esbuild: { jsx: 'automatic' },
   plugins: [
     VitePWA({
       strategies: 'injectManifest',
