@@ -411,6 +411,12 @@ function getStatusDiario(stats, { gastosHoje = 0, ratioMargem = 0 } = {}) {
   return { titulo: 'Com folga', pill: 'Com folga', frase, nivel: 'verde' };
 }
 
+// Margem prevista daqui a `dias` dias, mantendo a média de gasto atual
+function projecaoMargem(stats, dias) {
+  const v = stats.disponivelHoje + (stats.valorDiarioBase - stats.mediaGastoPorDia) * dias;
+  return Math.round(v * 100) / 100;
+}
+
 function getPlanRhythmStatus(stats) {
   const { mediaGastoPorDia, valorDiarioBase, projecaoDiff, diaAtual, totalGastos } = stats;
   const poucosDados = diaAtual < 3 || totalGastos === 0;
@@ -635,7 +641,7 @@ function NativeDatePicker({ label, value, onChange, minValue, maxValue }) {
 
   return (
     <div>
-      <div style={{ fontSize: 11, fontWeight: 700, color: T.textSec, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
+      <div style={{ fontSize: 12, fontWeight: 600, color: T.textSec, marginBottom: 8 }}>{label}</div>
       <div role="button" tabIndex={0} aria-label={`${label}: ${fullDate}`} onClick={openPicker} onKeyDown={aoTeclar(openPicker)} style={{
         background: isFocused ? '#EEF4FF' : '#F8FAFC',
         borderRadius: 16,
@@ -779,7 +785,7 @@ function TelaConfig({ onIniciar, saldoAnterior = 0, onCancelar = null, initialCo
       <div style={{ textAlign: 'center', marginBottom: 20 }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: T.blueLight, borderRadius: 99, padding: '4px 12px', marginBottom: 12 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: T.blue }} />
-          <span style={{ fontSize: 11, fontWeight: 700, color: textoCor(T.blue), letterSpacing: 0.6, textTransform: 'uppercase' }}>Configuração</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: textoCor(T.blue) }}>Configuração</span>
         </div>
         <div style={{ fontSize: 26, fontWeight: 800, color: T.text, letterSpacing: -0.8, lineHeight: 1.2 }}>
           Defina o valor do ciclo
@@ -798,7 +804,7 @@ function TelaConfig({ onIniciar, saldoAnterior = 0, onCancelar = null, initialCo
         }}>
           <span style={{ fontSize: 18 }}>{saldoAnterior > 0 ? '🎉' : '⚠️'}</span>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: textoCor(saldoAnterior > 0 ? T.green : T.red), textTransform: 'uppercase', letterSpacing: 0.4 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: textoCor(saldoAnterior > 0 ? T.green : T.red) }}>
               {saldoAnterior > 0 ? 'Saldo anterior' : 'Débito anterior'}
             </div>
             <div style={{ fontSize: 13, fontWeight: 700, color: textoCor(saldoAnterior > 0 ? T.green : T.red) }}>
@@ -814,7 +820,7 @@ function TelaConfig({ onIniciar, saldoAnterior = 0, onCancelar = null, initialCo
         boxShadow: '0 4px 16px rgba(47,111,237,0.08)', border: '1px solid rgba(47,111,237,0.14)',
         marginBottom: 12,
       }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: textoCor(T.blue), marginBottom: 16, letterSpacing: 0.4, textTransform: 'uppercase' }}>Como chegar nesse valor</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: textoCor(T.blue), marginBottom: 16 }}>Como chegar nesse valor</div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px 0' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1, minWidth: 52 }}>
             <div style={{ fontSize: 26, lineHeight: 1 }}>💼</div>
@@ -915,7 +921,7 @@ function TelaConfig({ onIniciar, saldoAnterior = 0, onCancelar = null, initialCo
           textAlign: 'center', color: '#fff',
           boxShadow: '0 8px 28px rgba(47,111,237,0.32)',
         }}>
-          <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.65, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 4 }}>Você tem por dia</div>
+          <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.65, marginBottom: 4 }}>Você tem por dia</div>
           <div style={{ fontSize: 40, fontWeight: 800, letterSpacing: -1.5, lineHeight: 1 }}>{fmt(valorDiario)}</div>
           <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>por dia durante {dias} {dias === 1 ? 'dia' : 'dias'}</div>
         </div>
@@ -996,7 +1002,7 @@ function TelaConfig({ onIniciar, saldoAnterior = 0, onCancelar = null, initialCo
         boxShadow: '0 8px 24px rgba(15,23,42,0.07)', border: '1px solid rgba(15,23,42,0.05)',
         marginBottom: 16,
       }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: T.textSec, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.7 }}>Resumo do seu plano</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: T.textSec, marginBottom: 10 }}>Resumo do seu plano</div>
         {summaryRows.map((row, i, arr) => (
           <div key={row.label} style={{
             borderBottom: i < arr.length - 1 ? `1px solid #F1F5F9` : 'none',
@@ -1083,7 +1089,7 @@ function SpendingGauge({ stats }) {
     <div>
       {/* Label + estado ativo */}
       <div style={{ marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: T.textSec, textTransform: 'uppercase', letterSpacing: 1.1 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: T.textSec }}>
           Ritmo do ciclo
         </span>
         {si >= 0 && (
@@ -1129,11 +1135,11 @@ function SpendingGauge({ stats }) {
       {/* Planejado vs Sua média */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: T.textTer, textTransform: 'uppercase', letterSpacing: 0.8 }}>Planejado</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: T.textTer }}>Planejado</div>
           <div style={{ fontSize: 13, fontWeight: 700, color: T.textSec }}>{fmt(stats.valorDiarioBase)}/dia</div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: T.textTer, textTransform: 'uppercase', letterSpacing: 0.8 }}>Sua média</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: T.textTer }}>Sua média</div>
           <div style={{ fontSize: 13, fontWeight: 700, color: textoCor(markerColor) }}>{fmt(stats.mediaGastoPorDia)}/dia</div>
         </div>
       </div>
@@ -1188,12 +1194,12 @@ function WeeklyMiniChart({ transacoes, valorDiarioBase, onAnalise, showLegend = 
         minHeight: 220,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontSize: 21, fontWeight: 800, color: T.text }}>Esta semana</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: T.text }}>Esta semana</div>
           {onAnalise && (
             <button onClick={onAnalise} style={{
               background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0',
               fontSize: 13, fontWeight: 700, color: textoCor(T.blue), fontFamily: T.font,
-            }}>Ver análise →</button>
+            }}>Ver análise</button>
           )}
         </div>
         <div style={{ fontSize: 15, fontWeight: 500, color: T.textSec, marginTop: 4 }}>Seu ritmo de gastos nos últimos dias</div>
@@ -1278,29 +1284,6 @@ function WeeklyMiniChart({ transacoes, valorDiarioBase, onAnalise, showLegend = 
   );
 }
 
-// ─── MiniDonutChart — gráfico de rosca de uso do orçamento ──────────────────
-function MiniDonutChart({ pct, color, size = 88 }) {
-  const stroke = 9;
-  const r = (size - stroke) / 2;
-  const circ = 2 * Math.PI * r;
-  const used = Math.min(Math.max(pct, 0), 100);
-  const dash = (used / 100) * circ;
-  const cx = size / 2, cy = size / 2;
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(15,23,42,0.07)" strokeWidth={stroke} />
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={stroke}
-        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
-        transform={`rotate(-90 ${cx} ${cy})`}
-      />
-      <text x={cx} y={cy + 6} textAnchor="middle" dominantBaseline="middle"
-        fontSize="17" fontWeight="800" fill={textoCor(color)} fontFamily="'DM Sans', system-ui, sans-serif">
-        {Math.round(used)}%
-      </text>
-    </svg>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════════
 // TELA — Fechamento de ciclo (visual)
 // ═══════════════════════════════════════════════════════════════
@@ -1334,7 +1317,7 @@ function TelaFechamentoCiclo({ state, onNovoMes, onHistorico, onVoltar }) {
       )}
       {/* Topo */}
       <div style={{ padding: '56px 24px 0', textAlign: 'center' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', marginBottom: 20 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 20 }}>
           Ciclo encerrado
         </div>
         <div style={{ fontSize: 64, lineHeight: 1, marginBottom: 16 }}>
@@ -1361,7 +1344,7 @@ function TelaFechamentoCiclo({ state, onNovoMes, onHistorico, onVoltar }) {
           <div key={item.label} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: T.r16, padding: '12px 10px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)' }}>
             <div style={{ fontSize: 18, marginBottom: 4 }}>{item.ico}</div>
             <div style={{ fontSize: 'clamp(12px, 3.5vw, 15px)', fontWeight: 800, color: '#fff', letterSpacing: -0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.value}</div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 3 }}>{item.label}</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.45)', marginTop: 3 }}>{item.label}</div>
           </div>
         ))}
       </div>
@@ -1370,7 +1353,7 @@ function TelaFechamentoCiclo({ state, onNovoMes, onHistorico, onVoltar }) {
       <div style={{ padding: '0 16px', marginBottom: 16 }}>
         <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: T.r16, padding: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.8 }}>Uso do ciclo</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>Uso do ciclo</span>
             <span style={{ fontSize: 11, fontWeight: 700, color: positivo ? '#6EE7B7' : '#FCA5A5' }}>{Math.round(pct * 100)}%</span>
           </div>
           <div style={{ height: 10, background: 'rgba(255,255,255,0.12)', borderRadius: 99, overflow: 'hidden', marginBottom: 8 }}>
@@ -1387,7 +1370,7 @@ function TelaFechamentoCiclo({ state, onNovoMes, onHistorico, onVoltar }) {
       {catsSorted.length > 0 && (
         <div style={{ padding: '0 16px', marginBottom: 24 }}>
           <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: T.r16, padding: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginBottom: 12 }}>
               Onde o dinheiro foi
             </div>
             {catsSorted.map(([catId, total]) => {
@@ -1718,8 +1701,7 @@ function UsoDoDiaBar({ base, accBufferStart, gastosHoje }) {
   return (
     <div style={{ marginBottom: 14 }}>
       <div style={{
-        fontSize: 10, fontWeight: 700, color: T.textTer,
-        textTransform: 'uppercase', letterSpacing: 1,
+        fontSize: 12, fontWeight: 600, color: T.textTer,
         marginBottom: semGastos ? 8 : 0,
       }}>
         Uso do dia
@@ -1804,12 +1786,12 @@ function UsoDoDiaBar({ base, accBufferStart, gastosHoje }) {
             <>
               {/* Fundo cinza (zona consumida, cresce da direita) */}
               <div style={{ position: 'absolute', inset: 0, background: '#E2E8F0' }} />
-              {/* Margem restante (amarelo) — esquerda */}
+              {/* Margem restante — verde (é folga); amarela só quando está sendo usada hoje */}
               {accBufferStart > 0 && (
                 <div style={{
                   position: 'absolute', left: 0, top: 0, bottom: 0,
                   width: `${emMargem ? remainingPct : buffZonePct}%`,
-                  background: T.yellow,
+                  background: emMargem ? T.yellow : T.green,
                 }} />
               )}
               {/* Cota restante (azul) — após a zona de margem */}
@@ -1893,7 +1875,7 @@ function UsoDoDiaBar({ base, accBufferStart, gastosHoje }) {
             <>
               {accBufferStart > 0 && (
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: textoCor(T.yellow) }}>{fmt(margRestante)}</div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: textoCor(emMargem ? T.yellow : T.green) }}>{fmt(margRestante)}</div>
                   <div style={{ fontSize: 10, color: T.textTer, marginTop: 1 }}>folga acumulada</div>
                 </div>
               )}
@@ -1942,7 +1924,7 @@ function LembreteBackup({ onBackup, onAdiar }) {
   );
 }
 
-function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarExtra, onHistorico, onOpenMenu, onAnalise, onEditar, onExcluir, onConfig, onFechamento, lembrarBackup = false, onBackup, onAdiarBackup }) {
+function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarExtra, onHistorico, onOpenMenu, onAnalise, onEditar, onExcluir, onFechamento, lembrarBackup = false, onBackup, onAdiarBackup }) {
   const stats = React.useMemo(() => calcStats(state), [state]);
   const hoje = new Date();
   const dataHoje = hoje.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
@@ -1976,20 +1958,12 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
       {/* ── Header ───────────────────────────────────────────── */}
       <div style={{ paddingBottom: 20, borderBottom: '1px solid rgba(15,23,42,0.07)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          {/* "Editar ciclo" fica no menu de opções (engrenagem) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* Botão de configuração — canto esquerdo antes do logo */}
-            <button onClick={onConfig} aria-label="Editar configuração do ciclo" style={{
-              width: 44, height: 44, borderRadius: 12,
-              background: T.blueLight, border: 'none',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0,
-            }} title="Editar configuração do ciclo">
-              <IcoEdit c={T.blue} s={16} />
-            </button>
-            <img src="/icons/icon-192.png" width="28" height="28" alt="Hoje Dá" style={{ borderRadius: 7, flexShrink: 0 }} />
+            <img src="/icons/icon-192.png" width="28" height="28" alt="" style={{ borderRadius: 7, flexShrink: 0 }} />
             <span style={{ fontSize: 22, fontWeight: 800, color: T.text, letterSpacing: -0.5 }}>Hoje Dá</span>
           </div>
-          <button onClick={onOpenMenu} aria-label="Abrir menu" style={{
+          <button onClick={onOpenMenu} aria-label="Abrir opções" style={{
             width: 44, height: 44, borderRadius: 12, cursor: 'pointer',
             background: T.card, border: T.border,
             boxShadow: '0 2px 6px rgba(15,23,42,0.05)',
@@ -1998,10 +1972,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
             <IcoGear c="#64748B" s={18} />
           </button>
         </div>
-        <div style={{ fontSize: 12, color: T.textTer, marginTop: 3, marginBottom: 2, letterSpacing: 0.2 }}>
-          Clareza. Controle. Liberdade.
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <IcoCalHdr />
             <span style={{ fontSize: 13, fontWeight: 500, color: T.textSec }}>{dataHojeDisplay}</span>
@@ -2024,7 +1995,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
           <span style={{ fontSize: 24, flexShrink: 0 }}>🏆</span>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>Ciclo encerrado!</div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>Ver resumo e iniciar o próximo →</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>Ver resumo e iniciar o próximo</div>
           </div>
         </button>
       )}
@@ -2071,7 +2042,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
 
           {/* Hero: disponível hoje */}
           <div style={{ marginBottom: 8 }} aria-live="polite" aria-atomic="true">
-            <div style={{ fontSize: 13, fontWeight: 700, color: T.textSec, textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 2 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: T.textSec, marginBottom: 2 }}>
               {isNeg ? 'Saiu do plano' : 'Disponível hoje'}
             </div>
             <div key={flashId} className={flashType ? 'num-pop' : undefined}
@@ -2113,7 +2084,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
               padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 600,
               color: textoCor(T.blue), fontFamily: T.font, opacity: 0.7,
             }}>
-              Como chegamos aqui? →
+              Como chegamos aqui?
             </button>
           </div>
         </div>
@@ -2163,75 +2134,48 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
       {/* ── Lembrete de backup (a cada 7 dias) ───────────────── */}
       {lembrarBackup && <LembreteBackup onBackup={onBackup} onAdiar={onAdiarBackup} />}
 
-      {/* ── Ritmo do ciclo (card separado, só quando está medindo) ─── */}
-      {rhythm.estado !== 'cedo' && (
-        <div style={{
-          marginTop: 16, borderRadius: 24, padding: '20px 20px 16px',
-          background: T.card,
-          boxShadow: '0 4px 16px rgba(15,23,42,0.06)', border: T.border,
-        }}>
-          <SpendingGauge stats={stats} flashColor={flashColor} />
-        </div>
-      )}
-
       {/* ── Esta semana ──────────────────────────────────────── */}
       <WeeklyMiniChart transacoes={state.transacoes} valorDiarioBase={stats.valorDiarioBase} onAnalise={onAnalise} showLegend={false} />
 
-      {/* ── Resumo do ciclo ──────────────────────────────────── */}
-      <div style={{ marginTop: 12 }}>
-        <div style={{
-          background: '#FFFFFF', borderRadius: 24, padding: '20px',
-          boxShadow: '0 4px 16px rgba(15,23,42,0.06)', border: '1px solid rgba(15,23,42,0.05)',
-        }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: T.text, marginBottom: 16 }}>Resumo do ciclo</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-            <MiniDonutChart pct={pct} color={donutColor} size={88} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: T.textTer, textTransform: 'uppercase', letterSpacing: 0.8 }}>Gasto até agora</div>
-                <div style={{ fontSize: 19, fontWeight: 800, color: T.text, letterSpacing: -0.5, marginTop: 2 }}>{fmt(stats.totalGastos)}</div>
-              </div>
-              <div style={{ height: 1, background: 'rgba(15,23,42,0.06)', marginBottom: 10 }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: T.textTer, textTransform: 'uppercase', letterSpacing: 0.8 }}>Saldo restante</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: textoCor(stats.saldoTotalRestante >= 0 ? T.green : T.red), letterSpacing: -0.3, marginTop: 2 }}>
-                    {fmt(stats.saldoTotalRestante)}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: T.textTer, textTransform: 'uppercase', letterSpacing: 0.8 }}>Dias restantes</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: T.text, letterSpacing: -0.3, marginTop: 2 }}>{stats.diasRestantes}</div>
-                </div>
-              </div>
+      {/* ── Resumo do ciclo: ritmo + como deve fechar + quanto já foi gasto ──
+            (a régua detalhada do ritmo fica na Análise) */}
+      {(() => {
+        const temProjecao = stats.diaAtual >= 3 && stats.totalGastos > 0;
+        const sobra = stats.projecaoDiff >= 0;
+        const totalCiclo = state.valorMensal + stats.totalEntradas;
+        return (
+          <div style={{
+            marginTop: 12, background: T.card, borderRadius: 24, padding: 20,
+            boxShadow: '0 4px 16px rgba(15,23,42,0.06)', border: T.border,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: T.text }}>Resumo do ciclo</div>
+              {rhythm.estado !== 'cedo' && (
+                <span style={{
+                  fontSize: 12, fontWeight: 700, color: textoCor(rhythm.cor),
+                  background: `${rhythm.cor}1A`, border: `1px solid ${rhythm.cor}38`,
+                  borderRadius: 99, padding: '3px 10px', whiteSpace: 'nowrap',
+                }}>{rhythm.titulo}</span>
+              )}
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.45, color: temProjecao ? textoCor(sobra ? T.green : T.red) : T.textSec }}>
+              {temProjecao
+                ? (sobra
+                    ? `No ritmo atual, deve sobrar ${fmt(stats.projecaoDiff)} no fim do ciclo.`
+                    : `No ritmo atual, o ciclo pode sair do plano em ${fmt(Math.abs(stats.projecaoDiff))}.`)
+                : 'Com mais alguns dias de registros, o app mostra como o ciclo deve fechar.'}
+            </div>
+            <div role="img" aria-label={`${Math.round(pct)}% do ciclo já foi gasto`}
+              style={{ height: 8, background: T.bgAlt, borderRadius: 99, overflow: 'hidden', marginTop: 14 }}>
+              <div style={{ width: `${pct}%`, height: '100%', background: donutColor, borderRadius: 99, transition: 'width 0.5s ease' }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 8, fontSize: 13, color: T.textSec }}>
+              <span><strong style={{ color: T.text, fontWeight: 700 }}>{fmt(stats.totalGastos)}</strong> de {fmt(totalCiclo)}</span>
+              <span>{stats.diasRestantes} {stats.diasRestantes === 1 ? 'dia restante' : 'dias restantes'}</span>
             </div>
           </div>
-          {(stats.diaAtual >= 3 && stats.totalGastos > 0) ? (
-            <div style={{
-              marginTop: 14, padding: '10px 14px', borderRadius: 14,
-              background: stats.projecaoDiff >= 0 ? T.greenLight : T.redLight,
-              border: `1px solid ${stats.projecaoDiff >= 0 ? 'rgba(49,164,108,0.2)' : 'rgba(227,93,106,0.2)'}`,
-              display: 'flex', alignItems: 'center', gap: 8,
-            }}>
-              <span style={{ fontSize: 15 }}>{stats.projecaoDiff >= 0 ? '📈' : '📉'}</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: textoCor(stats.projecaoDiff >= 0 ? '#3D8A60' : '#9B4A55'), lineHeight: 1.4 }}>
-                No ritmo atual, {stats.projecaoDiff >= 0 ? 'deve sobrar' : 'pode passar'}{' '}
-                {fmt(Math.abs(stats.projecaoDiff))}{' '}
-                {stats.projecaoDiff >= 0 ? 'no fim do ciclo' : 'acima do plano'}
-              </span>
-            </div>
-          ) : (
-            <div style={{
-              marginTop: 14, padding: '10px 14px', borderRadius: 14,
-              background: T.bgAlt, border: T.border,
-            }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: T.textSec }}>
-                Com mais alguns dias de dados, o app vai projetar como o ciclo vai fechar.
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
+        );
+      })()}
 
       {/* ── Estado vazio ─────────────────────────────────────── */}
       {state.transacoes.length === 0 && (
@@ -2253,7 +2197,7 @@ function TelaPainel({ state, flashId, flashType, onRegistrarGasto, onAdicionarEx
         <div style={{ marginTop: 20 }}>
           <div style={{ background: '#FFFFFF', borderRadius: 28, overflow: 'hidden', boxShadow: '0 8px 24px rgba(15,23,42,0.07)', border: '1px solid rgba(15,23,42,0.05)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px 24px 16px' }}>
-              <span style={{ fontSize: 21, fontWeight: 800, color: T.text }}>Últimos movimentos</span>
+              <span style={{ fontSize: 18, fontWeight: 800, color: T.text }}>Últimos movimentos</span>
               <button onClick={onHistorico} style={{
                 background: 'none', border: 'none', cursor: 'pointer',
                 fontSize: 15, color: textoCor(T.blue), fontWeight: 700, fontFamily: T.font,
@@ -2570,11 +2514,11 @@ function TelaHistorico({ transacoes, ciclosAnteriores = [], onExcluir, onEditar,
       {transacoes.length > 0 && (
         <div style={{ display: 'flex', gap: 10, padding: '14px 16px 0' }}>
           <div style={{ flex: 1, background: T.redLight, borderRadius: T.r14, padding: '12px 14px' }}>
-            <div style={{ fontSize: 11, color: textoCor(T.red), fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>Gasto total</div>
+            <div style={{ fontSize: 12, color: textoCor(T.red), fontWeight: 600, marginBottom: 3 }}>Gasto total</div>
             <div style={{ fontSize: 17, fontWeight: 800, color: textoCor(T.red) }}>{fmt(totalGastos)}</div>
           </div>
           <div style={{ flex: 1, background: T.greenLight, borderRadius: T.r14, padding: '12px 14px' }}>
-            <div style={{ fontSize: 11, color: textoCor(T.green), fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>Entradas</div>
+            <div style={{ fontSize: 12, color: textoCor(T.green), fontWeight: 600, marginBottom: 3 }}>Entradas</div>
             <div style={{ fontSize: 17, fontWeight: 800, color: textoCor(T.green) }}>{fmt(totalEntradas)}</div>
           </div>
         </div>
@@ -2651,7 +2595,7 @@ function TelaHistorico({ transacoes, ciclosAnteriores = [], onExcluir, onEditar,
 
       {Object.entries(grupos).sort(([a], [b]) => b.localeCompare(a)).map(([key, items]) => (
         <div key={key} style={{ padding: '14px 16px 0' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: T.textTer, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>{fmtDateLabel(items[0].data)}</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: T.textTer, marginBottom: 8 }}>{fmtDateLabel(items[0].data)}</div>
           <Card>
             {items.map((t, i) => {
               const isGasto = t.tipo === 'gasto';
@@ -2744,7 +2688,7 @@ function TelaHistorico({ transacoes, ciclosAnteriores = [], onExcluir, onEditar,
       {/* Ciclos anteriores arquivados */}
       {ciclosAnteriores.length > 0 && (
         <div style={{ padding: '24px 16px 0' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: T.textTer, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: T.textTer, marginBottom: 10 }}>
             Ciclos anteriores
           </div>
           {[...ciclosAnteriores].reverse().map((c, i) => {
@@ -2808,20 +2752,20 @@ function TelaAnalise({ state, onVoltar }) {
   const maxGasto = Math.max(...gastosPorDia, stats.valorDiarioBase * 1.5, 1);
   const fmtY = v => v >= 1000 ? `${(v / 1000).toFixed(1).replace('.0', '')}k` : `${Math.round(v)}`;
 
-  // ── Próximos dias: projeção com ritmo real, limitada ao fim do ciclo ──────────
-  // delta diário = base − média gasta → reflete velocidade atual de consumo
-  const saldoAtual = stats.disponivelHoje;
-  const deltaLiquido = stats.valorDiarioBase - stats.mediaGastoPorDia;
+  // ── Próximos dias: margem prevista daqui a até 7 dias (limitado ao fim do ciclo) ──
+  const poucosDados = stats.diaAtual < 3 || stats.totalGastos === 0;
   const diasParaProjetar = Math.min(7, Math.max(0, stats.diasRestantes));
-  const proximos7 = Array.from({ length: diasParaProjetar }, (_, i) => {
+  const margemPrevista = projecaoMargem(stats, diasParaProjetar);
+  // "amanhã", "no sábado (14/11)", "na próxima quinta-feira (19/11)"
+  const diaPrevisto = (() => {
+    if (diasParaProjetar === 1) return 'amanhã';
     const d = new Date(hoje);
-    d.setDate(hoje.getDate() + i + 1);
-    const diaProj = i + 1;
-    const projecao = saldoAtual + deltaLiquido * diaProj;
-    const diaSemana = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
-    const diaNum = d.getDate();
-    return { diaNum, diaSemana, projecao };
-  });
+    d.setDate(hoje.getDate() + diasParaProjetar);
+    const semana = d.toLocaleDateString('pt-BR', { weekday: 'long' });
+    const masculino = semana === 'sábado' || semana === 'domingo';
+    const artigo = diasParaProjetar === 7 ? (masculino ? 'no próximo' : 'na próxima') : (masculino ? 'no' : 'na');
+    return `${artigo} ${semana} (${fmtDate(d)})`;
+  })();
 
   const projecaoDiff = stats.projecaoDiff;
   const projecaoPos = projecaoDiff >= 0;
@@ -2845,7 +2789,7 @@ function TelaAnalise({ state, onVoltar }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
             }}>📊</div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: T.textSec, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: T.textSec, marginBottom: 4 }}>
                 Como o ciclo vai terminar
               </div>
               <div style={{ fontSize: 14, fontWeight: 600, color: T.textSec, lineHeight: 1.5 }}>
@@ -2875,7 +2819,7 @@ function TelaAnalise({ state, onVoltar }) {
               <IcoTrend c="#fff" up={projecaoPos} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.7)', marginBottom: 4 }}>
                 Como o ciclo vai terminar
               </div>
               <div style={{ fontSize: 34, fontWeight: 800, color: '#fff', letterSpacing: -1, lineHeight: 1, marginBottom: 6 }}>
@@ -2891,32 +2835,14 @@ function TelaAnalise({ state, onVoltar }) {
         )}
       </div>
 
-      {/* ── Resumo rápido ─────────────────────────────────────── */}
-      {(() => {
-        const semDados = stats.diaAtual < 3 || stats.totalGastos === 0;
-        if (semDados) return null;
-        const diff = stats.valorDiarioBase - stats.mediaGastoPorDia;
-        const diffPositivo = stats.mediaGastoPorDia <= stats.valorDiarioBase;
-        const cards = [
-          { label: 'Média/dia', value: fmt(stats.mediaGastoPorDia), color: stats.mediaGastoPorDia > stats.valorDiarioBase ? T.redText : T.text,  grad: 'linear-gradient(135deg,#FDECEF,#fff)', sub: 'gasto real' },
-          { label: 'Cota/dia',  value: fmt(stats.valorDiarioBase),  color: textoCor(T.blue), grad: 'linear-gradient(135deg,#EEF4FF,#fff)', sub: 'sua cota' },
-          { label: 'Diferença', value: fmt(Math.abs(diff)),
-            color: textoCor(diffPositivo ? T.green : T.red),
-            grad: diffPositivo ? 'linear-gradient(135deg,#EAF7F0,#fff)' : 'linear-gradient(135deg,#FDECEF,#fff)',
-            sub: diffPositivo ? 'poupando/dia' : 'passando/dia' },
-        ];
-        return (
-          <div style={{ margin: '10px 16px 0', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
-            {cards.map(c => (
-              <div key={c.label} style={{ background: c.grad, borderRadius: T.r14, padding: '12px 12px', boxShadow: T.shadow, border: T.border }}>
-                <div style={{ fontSize: 10, color: T.textSec, fontWeight: 600, marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.4 }}>{c.label}</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: textoCor(c.color) }}>{c.value}</div>
-                <div style={{ fontSize: 10, color: textoCor(c.color), fontWeight: 600, marginTop: 2, opacity: 0.8 }}>{c.sub}</div>
-              </div>
-            ))}
-          </div>
-        );
-      })()}
+      {/* ── Ritmo do ciclo (veio do painel): planejado × sua média, com a régua ── */}
+      {!poucosDados && (
+        <div style={{ margin: '12px 16px 0' }}>
+          <Card style={{ padding: '18px 18px 14px' }}>
+            <SpendingGauge stats={stats} />
+          </Card>
+        </div>
+      )}
 
       {/* ── Gráfico: gasto por dia ────────────────────────────── */}
       <div style={{ margin: '12px 16px 0' }}>
@@ -3116,52 +3042,28 @@ function TelaAnalise({ state, onVoltar }) {
         );
       })()}
 
-      {/* ── Calendário próximos 7 dias ────────────────────────── */}
+      {/* ── Próximos dias: uma frase com a margem prevista (antes: 7 linhas repetidas) ── */}
       <div style={{ margin: '12px 16px 0' }}>
         <Card>
-          <div style={{ padding: '16px 16px 8px' }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: T.text, marginBottom: 3 }}>
-              Próximos {diasParaProjetar === 0 ? '' : diasParaProjetar === 7 ? '7 ' : `${diasParaProjetar} `}dias
-            </div>
-            <div style={{ fontSize: 13, color: T.textSec, marginBottom: diasParaProjetar > 0 ? 16 : 8, fontWeight: 500 }}>
-              Margem acumulada prevista se manter o ritmo atual
-            </div>
-            {diasParaProjetar === 0 && (
-              <div style={{ textAlign: 'center', padding: '12px 0', fontSize: 13, color: T.textSec, fontWeight: 500 }}>
-                Último dia do ciclo — sem projeção disponível.
+          <div style={{ padding: '16px' }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: T.text, marginBottom: 6 }}>Próximos dias</div>
+            {diasParaProjetar === 0 ? (
+              <div style={{ fontSize: 14, color: T.textSec, lineHeight: 1.5 }}>
+                Hoje é o último dia do ciclo.
               </div>
-            )}
-            {proximos7.map((d, i) => {
-              const { cor: dCor, bg: dBg } = corSaldo(d.projecao, stats.valorDiarioBase);
+            ) : poucosDados ? (
+              <div style={{ fontSize: 14, color: T.textSec, lineHeight: 1.5 }}>
+                Com mais alguns dias de registros, o app mostra quanto de margem você deve ter na próxima semana.
+              </div>
+            ) : (() => {
+              const { cor } = corSaldo(margemPrevista, stats.valorDiarioBase);
               return (
-                <div key={i}>
-                  {i > 0 && <Divider left={0} />}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0' }}>
-                    <div style={{
-                      width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-                      background: dBg,
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: textoCor(dCor), lineHeight: 1 }}>{d.diaNum}</div>
-                      <div style={{ fontSize: 10, color: textoCor(dCor), fontWeight: 600, textTransform: 'uppercase', opacity: 0.8 }}>{d.diaSemana}</div>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: T.textSec }}>Margem prevista</span>
-                        <span style={{ fontSize: 13, fontWeight: 800, color: textoCor(dCor) }}>{fmt(d.projecao)}</span>
-                      </div>
-                      <div style={{ height: 5, background: T.bg, borderRadius: 100, overflow: 'hidden' }}>
-                        <div style={{
-                          height: '100%', borderRadius: 100, background: dCor,
-                          width: `${Math.min(Math.max((d.projecao / (stats.valorDiarioBase * (stats.diaAtual + i + 1))) * 100, 0), 100)}%`,
-                          transition: 'width 0.4s ease',
-                        }} />
-                      </div>
-                    </div>
-                  </div>
+                <div style={{ fontSize: 14, color: T.textSec, lineHeight: 1.5 }}>
+                  Mantendo o ritmo atual, {diaPrevisto} sua margem deve estar em{' '}
+                  <strong style={{ fontSize: 16, color: textoCor(cor) }}>{fmt(margemPrevista)}</strong>.
                 </div>
               );
-            })}
+            })()}
           </div>
         </Card>
       </div>
@@ -3203,7 +3105,7 @@ function DialogReiniciar({ onConfirmar, onCancelar, saldoRestante }) {
           }}>
             <span style={{ fontSize: 24 }}>{saldoPos ? '💰' : '⚠️'}</span>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: textoCor(saldoPos ? T.green : T.red), textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: textoCor(saldoPos ? T.green : T.red), marginBottom: 2 }}>
                 {saldoPos ? 'Saldo disponível' : 'Saldo negativo'}
               </div>
               <div style={{ fontSize: 18, fontWeight: 800, color: textoCor(saldoPos ? T.green : T.red) }}>
@@ -3296,11 +3198,10 @@ function OnboardingScreen({ onComecar }) {
         <div style={{
           background: 'rgba(255,255,255,0.11)',
           color: 'rgba(255,255,255,0.82)',
-          fontSize: 10, fontWeight: 700,
+          fontSize: 12, fontWeight: 600,
           padding: '5px 14px', borderRadius: 20,
-          letterSpacing: '1.1px',
           border: '1px solid rgba(255,255,255,0.22)',
-        }}>✦ ACESSO BETA FECHADO ✦</div>
+        }}>Acesso beta fechado</div>
       </div>
 
       {/* ── Conteúdo ── */}
@@ -3317,7 +3218,7 @@ function OnboardingScreen({ onComecar }) {
         {/* Section label */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexShrink: 0 }}>
           <div style={{ flex: 1, height: 1, background: T.sep }} />
-          <span style={{ fontSize: 10, fontWeight: 700, color: textoCor(T.blue), textTransform: 'uppercase', letterSpacing: 1.5, flexShrink: 0 }}>Como funciona</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: textoCor(T.blue), flexShrink: 0 }}>Como funciona</span>
           <div style={{ flex: 1, height: 1, background: T.sep }} />
         </div>
 
@@ -3835,6 +3736,12 @@ function App() {
     }
   }
 
+  function handleEditarCiclo() {
+    prevStateRef.current = state;
+    isNovoCicloRef.current = false;
+    setTela(TELAS.config);
+  }
+
   function handleVoltarParaOnboarding() {
     localStorage.removeItem('onboardingSeen');
     setOnboardingVisto(false);
@@ -3900,7 +3807,7 @@ function App() {
   const renderTela = () => {
     switch (tela) {
       case TELAS.config:    return <TelaConfig onIniciar={handleIniciar} saldoAnterior={state.saldoAnterior || 0} onCancelar={prevStateRef.current ? handleCancelarNovoMes : handleVoltarParaOnboarding} initialConfig={state.configurado ? state : null} />;
-      case TELAS.painel:    return <TelaPainel state={state} flashId={flashId} flashType={flashType} onRegistrarGasto={() => setTela(TELAS.gasto)} onAdicionarExtra={() => setTela(TELAS.extra)} onHistorico={() => setTela(TELAS.historico)} onOpenMenu={() => setShowMenu(true)} onAnalise={() => setTela(TELAS.analise)} onEditar={item => handleEditar(item, TELAS.painel)} onExcluir={handleExcluir} onConfig={() => { prevStateRef.current = state; isNovoCicloRef.current = false; setTela(TELAS.config); }} onFechamento={() => setTela(TELAS.fechamento)} lembrarBackup={deveLembrarBackup(state, backupInfo)} onBackup={handleExportarDados} onAdiarBackup={handleAdiarBackup} />;
+      case TELAS.painel:    return <TelaPainel state={state} flashId={flashId} flashType={flashType} onRegistrarGasto={() => setTela(TELAS.gasto)} onAdicionarExtra={() => setTela(TELAS.extra)} onHistorico={() => setTela(TELAS.historico)} onOpenMenu={() => setShowMenu(true)} onAnalise={() => setTela(TELAS.analise)} onEditar={item => handleEditar(item, TELAS.painel)} onExcluir={handleExcluir} onFechamento={() => setTela(TELAS.fechamento)} lembrarBackup={deveLembrarBackup(state, backupInfo)} onBackup={handleExportarDados} onAdiarBackup={handleAdiarBackup} />;
       case TELAS.fechamento: return <TelaFechamentoCiclo state={state} onNovoMes={() => setShowNovoMes(true)} onHistorico={() => setTela(TELAS.historico)} onVoltar={() => setTela(TELAS.painel)} />;
       case TELAS.gasto:     return <TelaEntrada tipo="gasto"  minDate={state.dataInicio ? fmtDateKey(new Date(state.dataInicio).toISOString()) : null} onSalvar={v => handleEntrada('gasto', v)}  onVoltar={(tipo) => { if (tipo) triggerFlash(tipo); setTela(TELAS.painel); }} />;
       case TELAS.extra:     return <TelaEntrada tipo="extra"  minDate={state.dataInicio ? fmtDateKey(new Date(state.dataInicio).toISOString()) : null} onSalvar={v => handleEntrada('extra', v)}  onVoltar={(tipo) => { if (tipo) triggerFlash(tipo); setTela(TELAS.painel); }} />;
@@ -3933,8 +3840,9 @@ function App() {
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 100 }} onClick={() => setShowMenu(false)}>
                   <div role="dialog" aria-modal="true" className="pop-in" onClick={e => e.stopPropagation()} style={{ background: T.card, borderRadius: '20px 20px 0 0', padding: '6px 20px 32px', width: '100%' }}>
                     <div style={{ width: 36, height: 4, borderRadius: 100, background: T.sep, margin: '12px auto 20px' }} />
-                    <div style={{ fontSize: 13, fontWeight: 700, color: T.textTer, textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 12 }}>Opções</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: T.textTer, marginBottom: 12 }}>Opções</div>
                     {[
+                      { label: 'Editar ciclo', sub: 'Mudar o valor ou as datas do ciclo atual', ico: '✏️', action: () => { setShowMenu(false); handleEditarCiclo(); }, danger: false },
                       { label: 'Novo ciclo', sub: 'Encerrar o ciclo atual e começar um novo', ico: '🔄', action: () => { setShowMenu(false); setShowNovoMes(true); }, danger: false },
                       { label: 'Lembretes diários', sub: getNotifConfig().ativo ? 'Lembrete ativo' : 'Ativar notificações', ico: '🔔', action: () => { setShowMenu(false); setShowNotif(true); }, danger: false },
                       { label: 'Exportar dados', sub: 'Baixar backup completo em JSON', ico: '📤', action: () => { setShowMenu(false); handleExportarDados(); }, danger: false },

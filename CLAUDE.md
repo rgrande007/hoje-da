@@ -78,3 +78,12 @@ Paleta em constante `T` no início de `src/main.jsx`:
 - **Texto colorido usa `textoCor(cor)`** (ou `T.greenText`, `T.redText`, `T.yellowText`, `T.blueText`): as cores da marca não passam no contraste mínimo (4,5:1) como texto pequeno — o amarelo tem 1,9:1.
 - Fonte: DM Sans (Google Fonts)
 - Referências visuais e princípios de UX: `BRAND/` (direção de arte, princípios de UX, sistema de componentes)
+
+## Decisões de UX (nov/2026, aprovadas pelo dono — testes em tests/regressao.test.js protegem)
+- Rótulos em caixa normal ("Disponível hoje"), nunca `textTransform: 'uppercase'`; sem "→" no fim de links/botões.
+- Painel = "Quanto ainda dá hoje?": cabeçalho só com logo + engrenagem (sem slogan; "Editar ciclo" fica no menu),
+  card do dia, Gastei/Recebi, lembrete de backup, Esta semana, um único "Resumo do ciclo" (ritmo + previsão + barra), últimos movimentos.
+- A régua de ritmo (`SpendingGauge`) fica na Análise ("Como está meu ritmo?").
+- `UsoDoDiaBar`: folga em verde; amarela só quando o gasto de hoje passou da cota e está consumindo a folga.
+- Análise "Próximos dias": uma frase com `projecaoMargem(stats, n)`, não uma lista.
+- Títulos de cartão do painel: 18px/800.

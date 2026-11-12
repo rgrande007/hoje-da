@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const { SCRIPT, carregar, criarLocalStorage, dateFixa } = require('./extrair');
 
 const NOMES = ['T', 'SK', 'SK_LEGACY', 'fmt', 'fmtDateKey', 'novoId', 'parseValorBR', 'dataLancamentoISO', 'dataEditadaISO',
-  'temHoraReal', 'podeIniciarCiclo', 'DIAS_ENTRE_BACKUPS', 'deveLembrarBackup', 'sanitizeState', 'loadState', 'arquivarCiclo', 'calcStats'];
+  'temHoraReal', 'podeIniciarCiclo', 'DIAS_ENTRE_BACKUPS', 'deveLembrarBackup', 'sanitizeState', 'loadState', 'arquivarCiclo', 'calcStats', 'projecaoMargem'];
 
 function app(opts) {
   const a = carregar(NOMES, opts);
@@ -266,4 +266,48 @@ test('dia do ciclo não atrasa na virada do horário de verão', () => {
   } finally {
     process.env.TZ = 'America/Sao_Paulo';
   }
+});
+
+// ─── Decisões de UX de nov/2026 (brand book: BRAND/) ────────────────────────
+const corpoDe = (inicio, fim) => SCRIPT.slice(SCRIPT.indexOf(inicio), SCRIPT.indexOf(fim));
+// Linhas de código (ignora comentários), para checar só textos e estilos de verdade
+const linhasDeCodigo = () => SCRIPT.split(/\r?\n/).map(l => l.replace(/\{\/\*.*?\*\/\}/g, '').replace(/\/\/.*$/, '')).filter(l => l.trim());
+
+test('rótulos em caixa normal, como no brand book (sem textTransform uppercase)', () => {
+  const achados = linhasDeCodigo().filter(l => l.includes("textTransform: 'uppercase'")).length;
+  assert.equal(achados, 0, `${achados} rótulo(s) ainda em caixa alta`);
+});
+
+test('links e botões sem seta "→" no fim do texto', () => {
+  const achados = linhasDeCodigo().filter(l => l.includes('→')).map(l => l.trim().slice(0, 80));
+  assert.deepEqual(achados, []);
+});
+
+test('painel sem o slogan diário', () => {
+  const painel = corpoDe('function TelaPainel(', 'function TelaEntrada(');
+  assert.ok(!painel.includes('Clareza. Controle. Liberdade.'), 'slogan ainda aparece no painel');
+});
+
+test('"Editar ciclo" fica no menu de opções', () => {
+  const app = corpoDe('function App()', 'ReactDOM.createRoot');
+  assert.ok(app.includes("label: 'Editar ciclo'"), 'menu sem "Editar ciclo"');
+});
+
+test('régua de ritmo saiu do painel e foi para a análise', () => {
+  assert.ok(!corpoDe('function TelaPainel(', 'function TelaEntrada(').includes('<SpendingGauge'), 'régua ainda no painel');
+  assert.ok(corpoDe('function TelaAnalise(', 'function DialogReiniciar(').includes('<SpendingGauge'), 'régua não está na análise');
+});
+
+test('na barra "Uso do dia" a folga é verde e só fica amarela quando está sendo usada', () => {
+  const barra = corpoDe('function UsoDoDiaBar(', 'function LembreteBackup(');
+  assert.ok(barra.includes('background: emMargem ? T.yellow : T.green'), 'zona de folga sem a regra verde/amarelo');
+});
+
+test('projeção da margem daqui a N dias segue o ritmo atual', () => {
+  const { projecaoMargem } = app();
+  exige(projecaoMargem, 'projecaoMargem');
+  const stats = { disponivelHoje: 715.9, valorDiarioBase: 100, mediaGastoPorDia: 62.19 };
+  assert.equal(projecaoMargem(stats, 7), 980.57);
+  assert.equal(projecaoMargem(stats, 0), 715.9);
+  assert.equal(projecaoMargem({ disponivelHoje: -50, valorDiarioBase: 100, mediaGastoPorDia: 130 }, 5), -200);
 });
